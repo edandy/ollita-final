@@ -1,0 +1,1 @@
+ALTER TABLE public.comedores ADD COLUMN IF NOT EXISTS max_raciones_por_reserva integer NOT NULL DEFAULT 5 CHECK (max_raciones_por_reserva BETWEEN 1 AND 50);

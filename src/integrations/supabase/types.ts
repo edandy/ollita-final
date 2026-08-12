@@ -1,0 +1,1115 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  public: {
+    Tables: {
+      beneficiarios: {
+        Row: {
+          activo: boolean
+          carga_familiar: number
+          categoria: Database["public"]["Enums"]["beneficiario_categoria"]
+          comedor_id: string
+          created_at: string
+          direccion: string | null
+          dni: string
+          id: string
+          nombre_completo: string
+          subtipo_caso_social:
+            | Database["public"]["Enums"]["beneficiario_subtipo"]
+            | null
+          telefono: string | null
+          vigencia_hasta: string | null
+        }
+        Insert: {
+          activo?: boolean
+          carga_familiar?: number
+          categoria: Database["public"]["Enums"]["beneficiario_categoria"]
+          comedor_id: string
+          created_at?: string
+          direccion?: string | null
+          dni: string
+          id?: string
+          nombre_completo: string
+          subtipo_caso_social?:
+            | Database["public"]["Enums"]["beneficiario_subtipo"]
+            | null
+          telefono?: string | null
+          vigencia_hasta?: string | null
+        }
+        Update: {
+          activo?: boolean
+          carga_familiar?: number
+          categoria?: Database["public"]["Enums"]["beneficiario_categoria"]
+          comedor_id?: string
+          created_at?: string
+          direccion?: string | null
+          dni?: string
+          id?: string
+          nombre_completo?: string
+          subtipo_caso_social?:
+            | Database["public"]["Enums"]["beneficiario_subtipo"]
+            | null
+          telefono?: string | null
+          vigencia_hasta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beneficiarios_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      caja_dias: {
+        Row: {
+          capital_inicial: number
+          cerrado: boolean
+          comedor_id: string
+          created_at: string
+          fecha: string
+          ganancia: number
+          id: string
+          total_egresos: number
+          total_ingresos: number
+        }
+        Insert: {
+          capital_inicial?: number
+          cerrado?: boolean
+          comedor_id: string
+          created_at?: string
+          fecha?: string
+          ganancia?: number
+          id?: string
+          total_egresos?: number
+          total_ingresos?: number
+        }
+        Update: {
+          capital_inicial?: number
+          cerrado?: boolean
+          comedor_id?: string
+          created_at?: string
+          fecha?: string
+          ganancia?: number
+          id?: string
+          total_egresos?: number
+          total_ingresos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caja_dias_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campanas: {
+        Row: {
+          activa: boolean
+          avance_monto: number
+          comedor_id: string
+          created_at: string
+          descripcion: string | null
+          foto_url: string | null
+          id: string
+          meta_descripcion: string | null
+          meta_monto: number | null
+          tipo_meta: Database["public"]["Enums"]["campana_meta"]
+          titulo: string
+        }
+        Insert: {
+          activa?: boolean
+          avance_monto?: number
+          comedor_id: string
+          created_at?: string
+          descripcion?: string | null
+          foto_url?: string | null
+          id?: string
+          meta_descripcion?: string | null
+          meta_monto?: number | null
+          tipo_meta?: Database["public"]["Enums"]["campana_meta"]
+          titulo: string
+        }
+        Update: {
+          activa?: boolean
+          avance_monto?: number
+          comedor_id?: string
+          created_at?: string
+          descripcion?: string | null
+          foto_url?: string | null
+          id?: string
+          meta_descripcion?: string | null
+          meta_monto?: number | null
+          tipo_meta?: Database["public"]["Enums"]["campana_meta"]
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clientes: {
+        Row: {
+          created_at: string
+          dni: string
+          nombre: string
+          telefono: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dni: string
+          nombre: string
+          telefono: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dni?: string
+          nombre?: string
+          telefono?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      comedores: {
+        Row: {
+          activo: boolean
+          created_at: string
+          descripcion: string | null
+          dias_atencion: string[]
+          direccion: string
+          distrito: string
+          foto_url: string | null
+          horario_fin: string
+          horario_inicio: string
+          id: string
+          lat: number
+          lng: number
+          max_raciones_por_reserva: number
+          nombre: string
+          precio_menu: number
+          raciones_diarias: number
+          telefono_whatsapp: string | null
+          tipo: Database["public"]["Enums"]["comedor_tipo"]
+          updated_at: string
+          yape_numero: string | null
+          yape_qr_url: string | null
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string | null
+          dias_atencion?: string[]
+          direccion: string
+          distrito: string
+          foto_url?: string | null
+          horario_fin?: string
+          horario_inicio?: string
+          id?: string
+          lat: number
+          lng: number
+          max_raciones_por_reserva?: number
+          nombre: string
+          precio_menu?: number
+          raciones_diarias?: number
+          telefono_whatsapp?: string | null
+          tipo?: Database["public"]["Enums"]["comedor_tipo"]
+          updated_at?: string
+          yape_numero?: string | null
+          yape_qr_url?: string | null
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string | null
+          dias_atencion?: string[]
+          direccion?: string
+          distrito?: string
+          foto_url?: string | null
+          horario_fin?: string
+          horario_inicio?: string
+          id?: string
+          lat?: number
+          lng?: number
+          max_raciones_por_reserva?: number
+          nombre?: string
+          precio_menu?: number
+          raciones_diarias?: number
+          telefono_whatsapp?: string | null
+          tipo?: Database["public"]["Enums"]["comedor_tipo"]
+          updated_at?: string
+          yape_numero?: string | null
+          yape_qr_url?: string | null
+        }
+        Relationships: []
+      }
+      cronograma: {
+        Row: {
+          comedor_id: string
+          directiva_de_turno: string | null
+          fecha: string
+          id: string
+          notas: string | null
+          socias: string[]
+        }
+        Insert: {
+          comedor_id: string
+          directiva_de_turno?: string | null
+          fecha: string
+          id?: string
+          notas?: string | null
+          socias?: string[]
+        }
+        Update: {
+          comedor_id?: string
+          directiva_de_turno?: string | null
+          fecha?: string
+          id?: string
+          notas?: string | null
+          socias?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cronograma_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuenta_items: {
+        Row: {
+          cantidad: number
+          created_at: string
+          cuenta_id: string
+          id: string
+          menu_id: string | null
+          nombre: string
+          precio_unitario: number
+        }
+        Insert: {
+          cantidad?: number
+          created_at?: string
+          cuenta_id: string
+          id?: string
+          menu_id?: string | null
+          nombre: string
+          precio_unitario?: number
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          cuenta_id?: string
+          id?: string
+          menu_id?: string | null
+          nombre?: string
+          precio_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuenta_items_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuenta_items_menu_id_fkey"
+            columns: ["menu_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuentas: {
+        Row: {
+          abierta_at: string
+          atendido_por: string | null
+          cerrada_at: string | null
+          comedor_id: string
+          comensales: number
+          created_at: string
+          estado: Database["public"]["Enums"]["cuenta_estado"]
+          id: string
+          mesa_id: string | null
+          mesa_nombre: string | null
+          metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
+          nota: string | null
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          abierta_at?: string
+          atendido_por?: string | null
+          cerrada_at?: string | null
+          comedor_id: string
+          comensales?: number
+          created_at?: string
+          estado?: Database["public"]["Enums"]["cuenta_estado"]
+          id?: string
+          mesa_id?: string | null
+          mesa_nombre?: string | null
+          metodo_pago?: Database["public"]["Enums"]["metodo_pago"] | null
+          nota?: string | null
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          abierta_at?: string
+          atendido_por?: string | null
+          cerrada_at?: string | null
+          comedor_id?: string
+          comensales?: number
+          created_at?: string
+          estado?: Database["public"]["Enums"]["cuenta_estado"]
+          id?: string
+          mesa_id?: string | null
+          mesa_nombre?: string | null
+          metodo_pago?: Database["public"]["Enums"]["metodo_pago"] | null
+          nota?: string | null
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuentas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuentas_mesa_id_fkey"
+            columns: ["mesa_id"]
+            isOneToOne: false
+            referencedRelation: "mesas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      favoritos: {
+        Row: {
+          comedor_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comedor_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comedor_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favoritos_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insumos: {
+        Row: {
+          comedor_id: string
+          consumo_diario_promedio: number
+          created_at: string
+          id: string
+          nombre: string
+          origen: Database["public"]["Enums"]["insumo_origen"]
+          precio_referencial: number | null
+          stock_actual: number
+          unidad: Database["public"]["Enums"]["insumo_unidad"]
+          updated_at: string
+        }
+        Insert: {
+          comedor_id: string
+          consumo_diario_promedio?: number
+          created_at?: string
+          id?: string
+          nombre: string
+          origen?: Database["public"]["Enums"]["insumo_origen"]
+          precio_referencial?: number | null
+          stock_actual?: number
+          unidad?: Database["public"]["Enums"]["insumo_unidad"]
+          updated_at?: string
+        }
+        Update: {
+          comedor_id?: string
+          consumo_diario_promedio?: number
+          created_at?: string
+          id?: string
+          nombre?: string
+          origen?: Database["public"]["Enums"]["insumo_origen"]
+          precio_referencial?: number | null
+          stock_actual?: number
+          unidad?: Database["public"]["Enums"]["insumo_unidad"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insumos_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invitaciones: {
+        Row: {
+          cargo: Database["public"]["Enums"]["cargo_socia"]
+          comedor_id: string | null
+          creado_por: string | null
+          created_at: string
+          email: string | null
+          expira_at: string
+          id: string
+          nombre: string | null
+          token: string
+          usado_at: string | null
+          usado_por: string | null
+        }
+        Insert: {
+          cargo?: Database["public"]["Enums"]["cargo_socia"]
+          comedor_id?: string | null
+          creado_por?: string | null
+          created_at?: string
+          email?: string | null
+          expira_at?: string
+          id?: string
+          nombre?: string | null
+          token: string
+          usado_at?: string | null
+          usado_por?: string | null
+        }
+        Update: {
+          cargo?: Database["public"]["Enums"]["cargo_socia"]
+          comedor_id?: string | null
+          creado_por?: string | null
+          created_at?: string
+          email?: string | null
+          expira_at?: string
+          id?: string
+          nombre?: string | null
+          token?: string
+          usado_at?: string | null
+          usado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitaciones_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_opciones: {
+        Row: {
+          created_at: string
+          id: string
+          menu_id: string
+          nombre: string
+          orden: number
+          precio_extra: number
+          tipo: Database["public"]["Enums"]["tiempo_menu"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          menu_id: string
+          nombre: string
+          orden?: number
+          precio_extra?: number
+          tipo: Database["public"]["Enums"]["tiempo_menu"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          menu_id?: string
+          nombre?: string
+          orden?: number
+          precio_extra?: number
+          tipo?: Database["public"]["Enums"]["tiempo_menu"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_opciones_menu_id_fkey"
+            columns: ["menu_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menus: {
+        Row: {
+          comedor_id: string
+          created_at: string
+          descripcion: string | null
+          fecha: string
+          foto_url: string | null
+          id: string
+          nombre_plato: string
+          precio: number
+          publicado: boolean
+          raciones_disponibles: number
+          updated_at: string
+        }
+        Insert: {
+          comedor_id: string
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          foto_url?: string | null
+          id?: string
+          nombre_plato: string
+          precio: number
+          publicado?: boolean
+          raciones_disponibles: number
+          updated_at?: string
+        }
+        Update: {
+          comedor_id?: string
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          foto_url?: string | null
+          id?: string
+          nombre_plato?: string
+          precio?: number
+          publicado?: boolean
+          raciones_disponibles?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menus_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mesas: {
+        Row: {
+          activa: boolean
+          comedor_id: string
+          created_at: string
+          id: string
+          nombre: string
+          orden: number
+          updated_at: string
+          zona: string | null
+        }
+        Insert: {
+          activa?: boolean
+          comedor_id: string
+          created_at?: string
+          id?: string
+          nombre: string
+          orden?: number
+          updated_at?: string
+          zona?: string | null
+        }
+        Update: {
+          activa?: boolean
+          comedor_id?: string
+          created_at?: string
+          id?: string
+          nombre?: string
+          orden?: number
+          updated_at?: string
+          zona?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mesas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimientos_insumo: {
+        Row: {
+          cantidad: number
+          created_at: string
+          fecha: string
+          id: string
+          insumo_id: string
+          nota: string | null
+          precio_unitario: number | null
+          tipo: Database["public"]["Enums"]["movimiento_tipo"]
+        }
+        Insert: {
+          cantidad: number
+          created_at?: string
+          fecha?: string
+          id?: string
+          insumo_id: string
+          nota?: string | null
+          precio_unitario?: number | null
+          tipo: Database["public"]["Enums"]["movimiento_tipo"]
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          fecha?: string
+          id?: string
+          insumo_id?: string
+          nota?: string | null
+          precio_unitario?: number | null
+          tipo?: Database["public"]["Enums"]["movimiento_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimientos_insumo_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservas: {
+        Row: {
+          beneficiario_id: string | null
+          cantidad: number
+          codigo: string
+          comedor_id: string
+          comprobante_url: string | null
+          created_at: string
+          dni: string | null
+          estado: Database["public"]["Enums"]["reserva_estado"]
+          id: string
+          menu_id: string
+          nombre_comensal: string | null
+          telefono: string | null
+        }
+        Insert: {
+          beneficiario_id?: string | null
+          cantidad: number
+          codigo: string
+          comedor_id: string
+          comprobante_url?: string | null
+          created_at?: string
+          dni?: string | null
+          estado?: Database["public"]["Enums"]["reserva_estado"]
+          id?: string
+          menu_id: string
+          nombre_comensal?: string | null
+          telefono?: string | null
+        }
+        Update: {
+          beneficiario_id?: string | null
+          cantidad?: number
+          codigo?: string
+          comedor_id?: string
+          comprobante_url?: string | null
+          created_at?: string
+          dni?: string | null
+          estado?: Database["public"]["Enums"]["reserva_estado"]
+          id?: string
+          menu_id?: string
+          nombre_comensal?: string | null
+          telefono?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservas_beneficiario_id_fkey"
+            columns: ["beneficiario_id"]
+            isOneToOne: false
+            referencedRelation: "beneficiarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_menu_id_fkey"
+            columns: ["menu_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transacciones: {
+        Row: {
+          caja_dia_id: string
+          categoria: Database["public"]["Enums"]["transaccion_categoria"]
+          comprobante_url: string | null
+          created_at: string
+          id: string
+          monto: number
+          nota: string | null
+          tipo: Database["public"]["Enums"]["transaccion_tipo"]
+        }
+        Insert: {
+          caja_dia_id: string
+          categoria: Database["public"]["Enums"]["transaccion_categoria"]
+          comprobante_url?: string | null
+          created_at?: string
+          id?: string
+          monto: number
+          nota?: string | null
+          tipo: Database["public"]["Enums"]["transaccion_tipo"]
+        }
+        Update: {
+          caja_dia_id?: string
+          categoria?: Database["public"]["Enums"]["transaccion_categoria"]
+          comprobante_url?: string | null
+          created_at?: string
+          id?: string
+          monto?: number
+          nota?: string | null
+          tipo?: Database["public"]["Enums"]["transaccion_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transacciones_caja_dia_id_fkey"
+            columns: ["caja_dia_id"]
+            isOneToOne: false
+            referencedRelation: "caja_dias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usuarios_comedor: {
+        Row: {
+          cargo: Database["public"]["Enums"]["cargo_socia"]
+          comedor_id: string
+          created_at: string
+          dni: string | null
+          id: string
+          nombre: string
+          telefono: string | null
+          user_id: string
+        }
+        Insert: {
+          cargo?: Database["public"]["Enums"]["cargo_socia"]
+          comedor_id: string
+          created_at?: string
+          dni?: string | null
+          id?: string
+          nombre: string
+          telefono?: string | null
+          user_id: string
+        }
+        Update: {
+          cargo?: Database["public"]["Enums"]["cargo_socia"]
+          comedor_id?: string
+          created_at?: string
+          dni?: string | null
+          id?: string
+          nombre?: string
+          telefono?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usuarios_comedor_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      comedor_tiene_miembros: {
+        Args: { _comedor_id: string }
+        Returns: boolean
+      }
+      es_miembro_de: { Args: { _comedor_id: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      verificar_padron: {
+        Args: { _comedor_id: string; _dni: string }
+        Returns: {
+          activo: boolean
+          beneficiario_id: string
+          categoria: string
+          nombre_completo: string
+          vigente: boolean
+        }[]
+      }
+    }
+    Enums: {
+      app_role: "admin"
+      beneficiario_categoria:
+        | "socia_familia"
+        | "publico_recurrente"
+        | "caso_social"
+      beneficiario_subtipo: "adulto_mayor" | "madre_soltera" | "otro"
+      campana_meta: "dinero" | "especie"
+      cargo_socia:
+        | "presidenta"
+        | "tesorera"
+        | "almacenera"
+        | "socia"
+        | "vicepresidenta"
+        | "cocinera"
+        | "secretaria"
+        | "fiscal"
+        | "vocal"
+      comedor_tipo: "comedor" | "olla" | "restaurante"
+      cuenta_estado: "abierta" | "pagada" | "anulada"
+      insumo_origen: "municipalidad" | "comprado" | "donado"
+      insumo_unidad: "kg" | "L" | "unid"
+      metodo_pago: "efectivo" | "yape" | "plin" | "tarjeta" | "otro"
+      movimiento_tipo: "ingreso" | "salida"
+      reserva_estado: "pendiente" | "recogida" | "no_recogida"
+      tiempo_menu: "entrada" | "fondo" | "postre" | "bebida"
+      transaccion_categoria:
+        | "venta_menus"
+        | "compra_frescos"
+        | "gas"
+        | "agua"
+        | "luz"
+        | "compra_insumos"
+        | "actividad"
+        | "otro"
+      transaccion_tipo: "ingreso" | "egreso"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["admin"],
+      beneficiario_categoria: [
+        "socia_familia",
+        "publico_recurrente",
+        "caso_social",
+      ],
+      beneficiario_subtipo: ["adulto_mayor", "madre_soltera", "otro"],
+      campana_meta: ["dinero", "especie"],
+      cargo_socia: [
+        "presidenta",
+        "tesorera",
+        "almacenera",
+        "socia",
+        "vicepresidenta",
+        "cocinera",
+        "secretaria",
+        "fiscal",
+        "vocal",
+      ],
+      comedor_tipo: ["comedor", "olla", "restaurante"],
+      cuenta_estado: ["abierta", "pagada", "anulada"],
+      insumo_origen: ["municipalidad", "comprado", "donado"],
+      insumo_unidad: ["kg", "L", "unid"],
+      metodo_pago: ["efectivo", "yape", "plin", "tarjeta", "otro"],
+      movimiento_tipo: ["ingreso", "salida"],
+      reserva_estado: ["pendiente", "recogida", "no_recogida"],
+      tiempo_menu: ["entrada", "fondo", "postre", "bebida"],
+      transaccion_categoria: [
+        "venta_menus",
+        "compra_frescos",
+        "gas",
+        "agua",
+        "luz",
+        "compra_insumos",
+        "actividad",
+        "otro",
+      ],
+      transaccion_tipo: ["ingreso", "egreso"],
+    },
+  },
+} as const

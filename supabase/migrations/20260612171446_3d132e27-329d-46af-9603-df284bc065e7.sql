@@ -1,0 +1,1 @@
+ALTER TABLE public.menus ADD COLUMN IF NOT EXISTS foto_url TEXT;

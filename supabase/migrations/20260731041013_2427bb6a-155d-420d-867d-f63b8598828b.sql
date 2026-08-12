@@ -1,0 +1,1 @@
+ALTER TABLE public.transacciones ADD COLUMN IF NOT EXISTS comprobante_url text;
