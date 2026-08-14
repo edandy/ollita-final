@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CheckCircle2, Share2, AlertTriangle, Pencil, UserPlus, Package, Camera, Trash2,
-  ChevronDown, ShoppingCart, ChefHat, ClipboardCheck,
+  ChevronDown, ShoppingCart, ChefHat, ClipboardCheck, Plus,
 } from "lucide-react";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { subirFoto } from "@/lib/subirFoto";
@@ -47,6 +47,7 @@ function Hoy() {
   const [insumos, setInsumos] = useState<any[]>([]);
   const [consumoAbierto, setConsumoAbierto] = useState(false);
   const [compraAbierta, setCompraAbierta] = useState(false);
+  const [agregarInsumo, setAgregarInsumo] = useState(false);
 
   // Marcas del día (guardadas en el equipo)
   const [revisado, setRevisado] = useState(false);
@@ -328,8 +329,12 @@ function Hoy() {
                 <p className="text-[17px] text-[#475569] leading-snug">Si compraste algo hoy, regístralo: entra al almacén y sale de la caja.</p>
                 <div className="flex flex-col gap-2.5">
                   <button type="button" onClick={() => setCompraAbierta(true)} disabled={insumos.length === 0}
-                    className="btn-grande border-0 bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]">
+                    className="btn-grande border-0 bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-50">
                     {insumos.length === 0 ? "Primero crea insumos en el almacén" : "Registrar compra de insumos"}
+                  </button>
+                  <button type="button" onClick={() => setAgregarInsumo(true)}
+                    className="btn-grande bg-white border border-[#E0E0E0] text-[#475569]">
+                    <Plus size={18} strokeWidth={1.75} /> Agregar insumo
                   </button>
                   <button type="button" onClick={() => { marcar("compra", !compraLista, setCompraLista); if (!compraLista) setAbierto(4); }}
                     className="btn-grande bg-white border border-[#E0E0E0] text-[#475569]">
@@ -472,11 +477,18 @@ function Hoy() {
         }} />
       )}
       {compraAbierta && (
-        <CompraModal insumos={insumos} comedor={comedor} cerrar={(guardo) => {
+        <CompraModal insumos={insumos} comedor={comedor} onListaCambiada={cargar} cerrar={(guardo) => {
           setCompraAbierta(false);
           if (guardo) marcar("compra", true, setCompraLista);
           cargar();
         }} />
+      )}
+      {agregarInsumo && comedor && (
+        <FormInsumoHoy
+          comedorId={comedor.id}
+          cerrar={() => setAgregarInsumo(false)}
+          alCrear={() => { setAgregarInsumo(false); cargar(); }}
+        />
       )}
     </main>
   );
@@ -530,13 +542,20 @@ function Paso({ paso, abierto, alternar, children }: {
   );
 }
 
-function CompraModal({ insumos, comedor, cerrar }: { insumos: any[]; comedor: any; cerrar: (guardo: boolean) => void }) {
+function CompraModal({ insumos: inicial, comedor, onListaCambiada, cerrar }: {
+  insumos: any[];
+  comedor: any;
+  onListaCambiada: () => void;
+  cerrar: (guardo: boolean) => void;
+}) {
+  const [lista, setLista] = useState(inicial);
   const [filas, setFilas] = useState<Record<string, { cant: string; precio: string }>>({});
   const [guardando, setGuardando] = useState(false);
+  const [agregar, setAgregar] = useState(false);
   const set = (id: string, campo: "cant" | "precio", v: string) =>
     setFilas((f) => ({ ...f, [id]: { cant: f[id]?.cant ?? "", precio: f[id]?.precio ?? "", [campo]: v } }));
 
-  const total = insumos.reduce((s, i) => {
+  const total = lista.reduce((s, i) => {
     const f = filas[i.id]; if (!f) return s;
     return s + (Number(f.cant) || 0) * (Number(f.precio) || Number(i.precio_referencial) || 0);
   }, 0);
@@ -545,7 +564,7 @@ function CompraModal({ insumos, comedor, cerrar }: { insumos: any[]; comedor: an
     setGuardando(true);
     const movimientos: any[] = [];
     const updates: any[] = [];
-    for (const i of insumos) {
+    for (const i of lista) {
       const f = filas[i.id];
       const c = Number(f?.cant);
       if (!c || c <= 0) continue;
@@ -581,7 +600,7 @@ function CompraModal({ insumos, comedor, cerrar }: { insumos: any[]; comedor: an
           <h3 className="text-[24px] font-bold text-[#072249] tracking-[-0.02em]">Registrar compra de insumos</h3>
           <p className="text-[17px] text-[#475569]">Entra al almacén y sale de la caja del día.</p>
         </div>
-        {insumos.map((i) => (
+        {lista.map((i) => (
           <div key={i.id} className="flex flex-col gap-2">
             <p className="text-[15px] font-semibold text-[#072249]">{i.nombre} <span className="font-normal text-[#718096]">· hay {Number(i.stock_actual).toFixed(2)} {i.unidad}</span></p>
             <div className="flex items-center gap-2">
@@ -594,11 +613,115 @@ function CompraModal({ insumos, comedor, cerrar }: { insumos: any[]; comedor: an
             </div>
           </div>
         ))}
+        <button
+          type="button"
+          onClick={() => setAgregar(true)}
+          className="min-h-14 gap-2 inline-flex items-center justify-center rounded-full bg-white border border-[#E0E0E0] text-[#475569] text-[17px] font-semibold hover:border-[#0F7BA8]"
+        >
+          <Plus size={18} strokeWidth={1.75} /> Agregar insumo
+        </button>
         <p className="text-right text-[17px] font-bold text-[#072249]">Total: S/ {total.toFixed(2)}</p>
         <div className="flex gap-2.5 pt-1">
           <button onClick={() => cerrar(false)} className="flex-1 btn-grande bg-white border border-[#E0E0E0] text-[#072249]">Cancelar</button>
           <button onClick={guardar} disabled={guardando} className="flex-[1.4] btn-grande bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]">{guardando ? "Guardando…" : "Guardar compra"}</button>
         </div>
+      </div>
+      {agregar && (
+        <FormInsumoHoy
+          comedorId={comedor.id}
+          cerrar={() => setAgregar(false)}
+          alCrear={(nuevo) => {
+            setLista((l) => [...l, nuevo]);
+            setAgregar(false);
+            onListaCambiada();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FormInsumoHoy({
+  comedorId,
+  cerrar,
+  alCrear,
+}: {
+  comedorId: string;
+  cerrar: () => void;
+  alCrear: (insumo: any) => void;
+}) {
+  const [nombre, setNombre] = useState("");
+  const [unidad, setUnidad] = useState<"kg" | "L" | "unid">("kg");
+  const [stock, setStock] = useState("0");
+  const [precio, setPrecio] = useState("");
+  const [origen, setOrigen] = useState<"municipalidad" | "comprado" | "donado">("comprado");
+  const [guardando, setGuardando] = useState(false);
+
+  const guardar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGuardando(true);
+    const { data, error } = await supabase.from("insumos").insert({
+      comedor_id: comedorId,
+      nombre: nombre.trim(),
+      unidad,
+      stock_actual: Number(stock) || 0,
+      consumo_diario_promedio: 0,
+      precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
+      origen,
+    }).select("id,nombre,unidad,stock_actual,consumo_diario_promedio,precio_referencial").single();
+    setGuardando(false);
+    if (error) { alert(error.message); return; }
+    alCrear(data);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-[rgba(7,34,73,0.55)] flex items-end sm:items-center justify-center p-6" onClick={(e) => { e.stopPropagation(); cerrar(); }}>
+      <div className="bg-white rounded-[22px] max-w-[520px] w-full p-[26px] flex flex-col gap-[18px] max-h-[100%] overflow-y-auto shadow-[0_12px_40px_rgba(7,34,73,0.30)]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-col gap-1">
+          <h3 className="text-[24px] font-bold text-[#072249] tracking-[-0.02em]">Agregar insumo</h3>
+          <p className="text-[17px] text-[#475569]">El gasto por día se calcula solo, con las salidas que registres.</p>
+        </div>
+        <form onSubmit={guardar} className="flex flex-col gap-[18px]">
+          <Campo label="Nombre">
+            <input value={nombre} onChange={(e) => setNombre(e.target.value)} required placeholder="Ej. Arroz"
+              className="w-full h-14 px-4 border border-[#E0E0E0] rounded-xl text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8]" />
+          </Campo>
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Unidad">
+              <select value={unidad} onChange={(e) => setUnidad(e.target.value as any)}
+                className="w-full h-14 px-4 border border-[#E0E0E0] rounded-xl text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8] bg-white">
+                <option value="kg">kg</option>
+                <option value="L">L</option>
+                <option value="unid">unidad</option>
+              </select>
+            </Campo>
+            <Campo label="Stock actual">
+              <input type="number" step="0.1" value={stock} onChange={(e) => setStock(e.target.value)}
+                className="w-full h-14 px-4 border border-[#E0E0E0] rounded-xl text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8]" />
+            </Campo>
+          </div>
+          <Campo label="Origen">
+            <select value={origen} onChange={(e) => setOrigen(e.target.value as any)}
+              className="w-full h-14 px-4 border border-[#E0E0E0] rounded-xl text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8] bg-white">
+              <option value="comprado">Comprado</option>
+              <option value="municipalidad">Municipalidad</option>
+              <option value="donado">Donado</option>
+            </select>
+          </Campo>
+          {origen === "comprado" && (
+            <Campo label="Precio referencial (S/)">
+              <input type="number" step="0.10" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="0.00"
+                className="w-full h-14 px-4 border border-[#E0E0E0] rounded-xl text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8]" />
+              <span className="text-sm text-[#718096]">Para el plan de compra</span>
+            </Campo>
+          )}
+          <div className="flex gap-2.5 pt-1">
+            <button type="button" onClick={cerrar} className="flex-1 btn-grande bg-white border border-[#E0E0E0] text-[#072249]">Cancelar</button>
+            <button type="submit" disabled={guardando} className="flex-[1.4] btn-grande bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]">
+              {guardando ? "Guardando…" : "Guardar insumo"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
