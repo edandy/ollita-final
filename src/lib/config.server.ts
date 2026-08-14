@@ -19,8 +19,31 @@ import process from "node:process";
 export function getServerConfig() {
   return {
     nodeEnv: process.env.NODE_ENV,
-    // Add server-only values here, e.g.:
-    //   databaseUrl: process.env.DATABASE_URL,
-    //   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
   };
+}
+
+export function getSpacesConfig() {
+  const key = process.env.SPACES_KEY;
+  const secret = process.env.SPACES_SECRET;
+  const bucket = process.env.SPACES_BUCKET;
+  const region = process.env.SPACES_REGION;
+  const derivedEndpoint = region ? `https://${region}.digitaloceanspaces.com` : "";
+  const endpoint =
+    process.env.SPACES_ENDPOINT && process.env.SPACES_ENDPOINT.includes(`${region}.`)
+      ? process.env.SPACES_ENDPOINT
+      : derivedEndpoint;
+  const cdnUrl = process.env.SPACES_CDN_URL?.replace(/\/$/, "") || "";
+
+  const missing = [
+    ...(!key ? ["SPACES_KEY"] : []),
+    ...(!secret ? ["SPACES_SECRET"] : []),
+    ...(!bucket ? ["SPACES_BUCKET"] : []),
+    ...(!region ? ["SPACES_REGION"] : []),
+    ...(!endpoint ? ["SPACES_ENDPOINT"] : []),
+  ];
+  if (missing.length) {
+    throw new Error(`Faltan variables de DigitalOcean Spaces: ${missing.join(", ")}`);
+  }
+
+  return { key: key!, secret: secret!, bucket: bucket!, region: region!, endpoint: endpoint!, cdnUrl };
 }

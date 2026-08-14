@@ -1,17 +1,26 @@
-import { supabase } from "@/integrations/supabase/client";
+import { pedirUrlSubida, pedirUrlSubidaPago } from "@/lib/spaces.functions";
 
-// Sube una imagen al bucket privado "fotos" y devuelve una URL firmada de larga duración.
+function archivoABase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const coma = result.indexOf(",");
+      resolve(coma >= 0 ? result.slice(coma + 1) : result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function subirFoto(file: File, carpeta: string): Promise<string> {
   const ext = file.name.split(".").pop() ?? "jpg";
-  const path = `${carpeta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error: upErr } = await supabase.storage.from("fotos").upload(path, file, {
-    contentType: file.type || "image/jpeg",
-    upsert: false,
-  });
-  if (upErr) throw upErr;
-  const { data, error } = await supabase.storage
-    .from("fotos")
-    .createSignedUrl(path, 60 * 60 * 24 * 365 * 5); // 5 años
-  if (error || !data?.signedUrl) throw error ?? new Error("No se pudo generar la URL");
-  return data.signedUrl;
+  const contentType = file.type || "image/jpeg";
+  const contenidoBase64 = await archivoABase64(file);
+  const payload = { carpeta, contentType, ext, size: file.size, contenidoBase64 };
+  const esPago = carpeta === "pagos" || carpeta.startsWith("pagos/");
+  const res = esPago
+    ? await pedirUrlSubidaPago({ data: payload })
+    : await pedirUrlSubida({ data: payload });
+  return res.publicUrl;
 }
