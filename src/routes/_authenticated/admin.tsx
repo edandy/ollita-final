@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -10,7 +11,7 @@ import { EnlaceInvitacion } from "@/components/EnlaceInvitacion";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 import {
   Plus, Power, Trash2, Link2, Users, Utensils, ClipboardList, Menu, X, LayoutGrid,
-  UserCog, Pencil, ArrowRight, CalendarCheck, Check, Minus, Search, MoreVertical,
+  UserCog, Pencil, ArrowRight, CalendarCheck, Check, Minus, Search, MoreVertical, LogOut,
 } from "lucide-react";
 
 const CARGOS = ["presidenta", "vicepresidenta", "tesorera", "almacenera", "cocinera", "secretaria", "fiscal", "vocal", "socia"] as const;
@@ -64,6 +65,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 function AdminPage() {
+  const navigate = useNavigate();
   const fnAdmin = useServerFn(soyAdmin);
   const fnListar = useServerFn(adminListarComedores);
   const fnActivar = useServerFn(adminActivarComedor);
@@ -145,6 +147,11 @@ function AdminPage() {
     if (s !== "usuarios") setMostrarNuevoUsuario(false);
   };
 
+  const cerrarSesion = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/" });
+  };
+
   const tipoLabel = (t: string) =>
     t === "olla" ? "Olla común" : t === "restaurante" ? "Negocio de menú" : "Comedor popular";
 
@@ -184,12 +191,21 @@ function AdminPage() {
 
         <div className="flex-1" />
 
-        <div className="border-t border-[rgba(162,217,242,0.25)] pt-4 flex items-center gap-3 px-1">
-          <div className="size-11 rounded-full bg-[#20A5E0] text-white grid place-items-center text-base font-bold shrink-0">NF</div>
-          <div className="min-w-0 flex flex-col gap-0.5">
-            <span className="text-base font-semibold text-white truncate">Equipo NOS</span>
-            <span className="text-sm text-bosque-suave">Administrador</span>
+        <div className="border-t border-[rgba(162,217,242,0.25)] pt-4 flex flex-col gap-3 px-1">
+          <div className="flex items-center gap-3">
+            <div className="size-11 rounded-full bg-[#20A5E0] text-white grid place-items-center text-base font-bold shrink-0">NF</div>
+            <div className="min-w-0 flex flex-col gap-0.5">
+              <span className="text-base font-semibold text-white truncate">Equipo NOS</span>
+              <span className="text-sm text-bosque-suave">Administrador</span>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={cerrarSesion}
+            className="min-h-12 px-3 gap-2.5 inline-flex items-center rounded-[14px] text-[#A2D9F2] text-[16px] font-semibold hover:text-white hover:bg-white/5"
+          >
+            <LogOut size={20} strokeWidth={1.75} /> Cerrar sesión
+          </button>
         </div>
       </aside>
 
@@ -216,18 +232,29 @@ function AdminPage() {
               </p>
             </div>
           </div>
-          {hayCta && (
+          <div className="flex items-center gap-2.5 shrink-0">
+            {hayCta && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (seccion === "usuarios") setMostrarNuevoUsuario(true);
+                  else irSeccion("nueva");
+                }}
+                className="min-h-[52px] px-6 rounded-full bg-[#0F7BA8] text-white text-base font-semibold inline-flex items-center gap-2 shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"
+              >
+                <Plus size={20} /> {ctaLabel}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => {
-                if (seccion === "usuarios") setMostrarNuevoUsuario(true);
-                else irSeccion("nueva");
-              }}
-              className="min-h-[52px] px-6 rounded-full bg-[#0F7BA8] text-white text-base font-semibold inline-flex items-center gap-2 shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"
+              onClick={cerrarSesion}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+              className="size-12 rounded-full border border-[#E0E0E0] bg-white text-[#475569] grid place-items-center shrink-0 hover:border-[#0F7BA8]"
             >
-              <Plus size={20} /> {ctaLabel}
+              <LogOut size={24} strokeWidth={1.75} />
             </button>
-          )}
+          </div>
         </header>
 
         <main className="flex-1 px-4 sm:px-9 py-7 pb-14 flex flex-col gap-6">
