@@ -35,6 +35,7 @@ function PerfilPage() {
       yape_numero: f.yape_numero || null,
       raciones_diarias: Number(f.raciones_diarias),
       precio_menu: Number(f.precio_menu),
+      precio_menu_publico: f.precio_menu_publico === "" || f.precio_menu_publico == null ? null : Number(f.precio_menu_publico),
       max_raciones_por_reserva: Number(f.max_raciones_por_reserva),
       horario_inicio: f.horario_inicio, horario_fin: f.horario_fin,
       lat: Number(f.lat), lng: Number(f.lng),
@@ -124,6 +125,9 @@ function PerfilPage() {
             </PanelField>
             <PanelField label="Precio menú (S/)">
               <input type="number" step="0.50" className={panelInputClass()} value={f.precio_menu} onChange={upd("precio_menu")} />
+            </PanelField>
+            <PanelField label="Precio al publico">
+              <input type="number" step="0.50" className={panelInputClass()} value={f.precio_menu_publico ?? ""} onChange={upd("precio_menu_publico")} />
             </PanelField>
           </div>
 

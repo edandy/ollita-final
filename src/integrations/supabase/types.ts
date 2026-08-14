@@ -211,6 +211,7 @@ export type Database = {
           max_raciones_por_reserva: number
           nombre: string
           precio_menu: number
+          precio_menu_publico: number | null
           raciones_diarias: number
           telefono_whatsapp: string | null
           tipo: Database["public"]["Enums"]["comedor_tipo"]
@@ -234,6 +235,7 @@ export type Database = {
           max_raciones_por_reserva?: number
           nombre: string
           precio_menu?: number
+          precio_menu_publico?: number | null
           raciones_diarias?: number
           telefono_whatsapp?: string | null
           tipo?: Database["public"]["Enums"]["comedor_tipo"]
@@ -257,6 +259,7 @@ export type Database = {
           max_raciones_por_reserva?: number
           nombre?: string
           precio_menu?: number
+          precio_menu_publico?: number | null
           raciones_diarias?: number
           telefono_whatsapp?: string | null
           tipo?: Database["public"]["Enums"]["comedor_tipo"]
