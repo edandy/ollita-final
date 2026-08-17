@@ -112,6 +112,13 @@ export const adminCrearComedor = createServerFn({ method: "POST" })
       dni: data.dni.trim(), telefono: data.telefono?.trim() || null,
     });
     if (e3) throw new Error(e3.message);
+    const { writeStaffToPadron } = await import("@/lib/padron.functions");
+    await writeStaffToPadron(supabaseAdmin, {
+      comedor_id: comedor.id,
+      nombre: data.presidenta.trim(),
+      dni: data.dni.trim(),
+      telefono: data.telefono?.trim() || null,
+    });
     return { ok: true, comedor_id: comedor.id, nombre: comedor.nombre };
   });
 
@@ -292,6 +299,13 @@ export const adminCrearUsuario = createServerFn({ method: "POST" })
       await supabaseAdmin.auth.admin.deleteUser(u.user.id);
       throw new Error(e2.message);
     }
+    const { writeStaffToPadron } = await import("@/lib/padron.functions");
+    await writeStaffToPadron(supabaseAdmin, {
+      comedor_id: data.comedor_id,
+      nombre: data.nombre.trim(),
+      dni: data.dni.trim(),
+      telefono: data.telefono?.trim() || null,
+    });
     return { ok: true };
   });
 

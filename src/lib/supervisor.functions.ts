@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { validateCreatePlatformUser, validateUpdatePlatformUser } from "@/lib/supervisor";
+import { esSoloLectura, type Cargo } from "@/lib/permisos";
+import { validateCreatePlatformUser, validateUpdatePlatformUser, friendlyCreatePlatformUserError } from "@/lib/supervisor";
 
 async function requireAdmin(context: { supabase: any; userId: string }) {
   const { data, error } = await context.supabase
@@ -44,6 +45,39 @@ export async function requireKitchenManager(context: { supabase: any; userId: st
   }
 
   throw new Error("Solo la presidenta o un supervisor con acceso completo puede hacer esto");
+}
+
+export async function requireKitchenWriter(context: { supabase: any; userId: string }, comedorId: string) {
+  const { data: roles } = await context.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId);
+  if ((roles ?? []).some((r: { role: string }) => r.role === "admin")) return;
+
+  const { data: member } = await context.supabase
+    .from("usuarios_comedor")
+    .select("cargo")
+    .eq("user_id", context.userId)
+    .eq("comedor_id", comedorId)
+    .maybeSingle();
+  if (member?.cargo && !esSoloLectura(member.cargo as Cargo)) return;
+
+  const { data: supervisor } = await context.supabase
+    .from("supervisors")
+    .select("access_level")
+    .eq("user_id", context.userId)
+    .maybeSingle();
+  if (supervisor?.access_level === "full") {
+    const { data: assignment } = await context.supabase
+      .from("supervisor_assignments")
+      .select("comedor_id")
+      .eq("user_id", context.userId)
+      .eq("comedor_id", comedorId)
+      .maybeSingle();
+    if (assignment) return;
+  }
+
+  throw new Error("No tienes permiso para registrar personas en esta olla");
 }
 
 export const getPlatformAccess = createServerFn({ method: "GET" })
@@ -145,7 +179,7 @@ export const createPlatformUser = createServerFn({ method: "POST" })
         email_confirm: true,
         user_metadata: { name: data.name, dni: data.dni, phone: data.phone },
       });
-      if (created.error || !created.data.user) throw new Error(created.error?.message ?? "No se pudo crear la cuenta");
+      if (created.error || !created.data.user) throw new Error(friendlyCreatePlatformUserError(created.error?.message ?? "No se pudo crear la cuenta"));
       userId = created.data.user.id;
     } else {
       await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -160,10 +194,11 @@ export const createPlatformUser = createServerFn({ method: "POST" })
     const { error: roleError } = await supabaseAdmin.from("user_roles").insert({ user_id: userId, role: data.role });
     if (roleError) {
       await rollback();
-      throw new Error(roleError.message);
+      throw new Error(friendlyCreatePlatformUserError(roleError.message));
     }
 
     if (data.role === "supervisor") {
+      if (!data.accessLevel) throw new Error("Nivel de acceso inválido");
       const { error: profileError } = await supabaseAdmin.from("supervisors").insert({
         user_id: userId,
         name: data.name,
@@ -174,7 +209,7 @@ export const createPlatformUser = createServerFn({ method: "POST" })
       if (profileError) {
         await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).eq("role", "supervisor");
         await rollback();
-        throw new Error(profileError.message);
+        throw new Error(friendlyCreatePlatformUserError(profileError.message));
       }
       const { error: assignError } = await supabaseAdmin.from("supervisor_assignments").insert(
         data.comedorIds.map((comedor_id) => ({ user_id: userId, comedor_id })),
@@ -183,7 +218,7 @@ export const createPlatformUser = createServerFn({ method: "POST" })
         await supabaseAdmin.from("supervisors").delete().eq("user_id", userId);
         await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).eq("role", "supervisor");
         await rollback();
-        throw new Error(assignError.message);
+        throw new Error(friendlyCreatePlatformUserError(assignError.message));
       }
     }
     return { ok: true };
@@ -225,7 +260,7 @@ export const updatePlatformUser = createServerFn({ method: "POST" })
       await clearSupervisorRecords(supabaseAdmin, data.userId);
       if (!wasAdmin) {
         const { error } = await supabaseAdmin.from("user_roles").insert({ user_id: data.userId, role: "admin" });
-        if (error) throw new Error(error.message);
+        if (error) throw new Error(friendlyCreatePlatformUserError(error.message));
       }
       return { ok: true };
     }
@@ -233,6 +268,7 @@ export const updatePlatformUser = createServerFn({ method: "POST" })
     if (wasAdmin) {
       await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).eq("role", "admin");
     }
+    if (!data.accessLevel) throw new Error("Nivel de acceso inválido");
     const { data: hasSupervisorRole } = await supabaseAdmin
       .from("user_roles")
       .select("user_id")
@@ -241,7 +277,7 @@ export const updatePlatformUser = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!hasSupervisorRole) {
       const { error: roleError } = await supabaseAdmin.from("user_roles").insert({ user_id: data.userId, role: "supervisor" });
-      if (roleError) throw new Error(roleError.message);
+      if (roleError) throw new Error(friendlyCreatePlatformUserError(roleError.message));
     }
 
     const { data: existingProfile } = await supabaseAdmin
@@ -254,21 +290,21 @@ export const updatePlatformUser = createServerFn({ method: "POST" })
         .from("supervisors")
         .update({ name: data.name, access_level: data.accessLevel })
         .eq("user_id", data.userId);
-      if (profileError) throw new Error(profileError.message);
+      if (profileError) throw new Error(friendlyCreatePlatformUserError(profileError.message));
     } else {
       const { error: profileError } = await supabaseAdmin.from("supervisors").insert({
         user_id: data.userId,
         name: data.name,
         access_level: data.accessLevel,
       });
-      if (profileError) throw new Error(profileError.message);
+      if (profileError) throw new Error(friendlyCreatePlatformUserError(profileError.message));
     }
     const { error: deleteError } = await supabaseAdmin.from("supervisor_assignments").delete().eq("user_id", data.userId);
-    if (deleteError) throw new Error(deleteError.message);
+    if (deleteError) throw new Error(friendlyCreatePlatformUserError(deleteError.message));
     const { error: assignError } = await supabaseAdmin.from("supervisor_assignments").insert(
       data.comedorIds.map((comedor_id) => ({ user_id: data.userId, comedor_id })),
     );
-    if (assignError) throw new Error(assignError.message);
+    if (assignError) throw new Error(friendlyCreatePlatformUserError(assignError.message));
     return { ok: true };
   });
 

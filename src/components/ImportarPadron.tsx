@@ -1,16 +1,23 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import { useSubmitLock } from "@/lib/submit-lock";
+import { importarPadron } from "@/lib/padron.functions";
 import { Upload } from "lucide-react";
 
 type Fila = {
-  nombre_completo: string; dni: string; telefono: string | null;
-  direccion: string | null; carga_familiar: number; activo: boolean;
+  nombre: string;
+  dni: string;
+  pin: string;
+  telefono: string | null;
+  direccion: string | null;
+  carga: number;
+  activo: boolean;
 };
 
 const ALIAS: Record<string, string> = {
   nombre: "nombre", "nombre completo": "nombre", nombres: "nombre",
   dni: "dni", documento: "dni",
+  pin: "pin", clave: "pin",
   telefono: "telefono", "teléfono": "telefono", celular: "telefono",
   direccion: "direccion", "dirección": "direccion",
   estado: "estado", activo: "estado",
@@ -18,6 +25,7 @@ const ALIAS: Record<string, string> = {
 };
 
 export function ImportarPadron({ comedorId, alTerminar }: { comedorId: string; alTerminar: () => void }) {
+  const fnImportar = useServerFn(importarPadron);
   const [filas, setFilas] = useState<Fila[]>([]);
   const [errores, setErrores] = useState<string[]>([]);
   const { pending: guardando, run } = useSubmitLock();
@@ -40,16 +48,19 @@ export function ImportarPadron({ comedorId, alTerminar }: { comedorId: string; a
       }
       const nombre = String(n.nombre ?? "").trim();
       const dni = String(n.dni ?? "").replace(/\D/g, "");
+      const pin = String(n.pin ?? "").replace(/\D/g, "");
       const tel = String(n.telefono ?? "").replace(/\D/g, "");
       if (!nombre) { errs.push(`Fila ${i + 2}: falta el nombre`); return; }
       if (dni.length !== 8) { errs.push(`Fila ${i + 2}: DNI inválido (${n.dni})`); return; }
+      if (pin.length < 4 || pin.length > 8) { errs.push(`Fila ${i + 2}: falta el PIN`); return; }
       const estado = String(n.estado ?? "activo").trim().toLowerCase();
       ok.push({
-        nombre_completo: nombre,
+        nombre,
         dni,
+        pin,
         telefono: tel.length === 9 ? tel : null,
         direccion: String(n.direccion ?? "").trim() || null,
-        carga_familiar: Number.isFinite(Number(n.carga)) ? Math.max(0, Math.trunc(Number(n.carga))) : 0,
+        carga: Number.isFinite(Number(n.carga)) ? Math.max(0, Math.trunc(Number(n.carga))) : 0,
         activo: !["inactivo", "no", "baja", "0", "false"].includes(estado),
       });
     });
@@ -59,23 +70,43 @@ export function ImportarPadron({ comedorId, alTerminar }: { comedorId: string; a
 
   const guardar = () => {
     void run(async () => {
-      let insertados = 0;
-      for (let i = 0; i < filas.length; i += 200) {
-        const lote = filas.slice(i, i + 200).map((f) => ({ ...f, comedor_id: comedorId, categoria: "socia_familia" as const }));
-        const { error } = await supabase.from("beneficiarios").upsert(lote, { onConflict: "comedor_id,dni" });
-        if (error) { setErrores((e) => [...e, error.message]); break; }
-        insertados += lote.length;
+      try {
+        const result = await fnImportar({
+          data: {
+            comedor_id: comedorId,
+            rows: filas.map((f) => ({
+              nombre: f.nombre,
+              dni: f.dni,
+              pin: f.pin,
+              telefono: f.telefono ?? undefined,
+              direccion: f.direccion,
+              carga: f.carga,
+              activo: f.activo,
+            })),
+          },
+        });
+        const extra = [
+          ...(result.errors ?? []),
+          ...(result.warnings ?? []),
+        ];
+        setErrores(extra);
+        setResumen(
+          `Se importaron ${result.imported} personas al padrón` +
+            (result.accountsCreated ? ` y se crearon ${result.accountsCreated} cuentas.` : "."),
+        );
+        setFilas([]);
+        alTerminar();
+      } catch (e: any) {
+        setErrores((prev) => [...prev, e?.message ?? "No se pudo importar el padrón"]);
       }
-      setResumen(`Se importaron ${insertados} personas al padrón.`);
-      setFilas([]);
-      alTerminar();
     });
   };
 
   return (
     <div className="flex flex-col gap-3.5">
       <p className="text-[16px] text-[#475569]">
-        El archivo debe tener las columnas: nombre, dni, telefono, direccion, estado y carga familiar.
+        El archivo debe tener las columnas: nombre, dni, pin, telefono, direccion, estado y carga familiar.
+        Cada persona entra con su DNI y el PIN de la fila.
       </p>
       <label className="min-h-14 w-full gap-2 inline-flex items-center justify-center rounded-full bg-white border border-[#E0E0E0] text-[#072249] text-[17px] font-semibold cursor-pointer hover:border-[#0F7BA8]">
         <Upload size={22} strokeWidth={1.75} /> Elegir archivo (.xlsx o .csv)
@@ -95,7 +126,7 @@ export function ImportarPadron({ comedorId, alTerminar }: { comedorId: string; a
           <p className="text-[17px] text-[#072249] font-semibold">{filas.length} personas listas para importar</p>
           <div className="max-h-40 overflow-y-auto flex flex-col gap-1">
             {filas.slice(0, 8).map((f, i) => (
-              <p key={i} className="text-[15px] text-[#718096] truncate">{f.nombre_completo} · DNI {f.dni}{f.telefono ? ` · ${f.telefono}` : ""}</p>
+              <p key={i} className="text-[15px] text-[#718096] truncate">{f.nombre} · DNI {f.dni}{f.telefono ? ` · ${f.telefono}` : ""}</p>
             ))}
             {filas.length > 8 && <p className="text-[15px] text-[#718096]">…y {filas.length - 8} más</p>}
           </div>

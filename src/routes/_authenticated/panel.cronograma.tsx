@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { useSubmitLock } from "@/lib/submit-lock";
+import { useCanWrite } from "@/lib/kitchen-access-context";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  PanelShell, PanelBack, PanelTitle, PanelField, PanelCta, PanelOverlay, panelInputClass,
+  PanelShell, PanelBack, PanelTitle, PanelField, PanelCta, PanelOverlay, panelInputClass, PanelWriteGate,
 } from "@/components/panel-ui";
 
 export const Route = createFileRoute("/_authenticated/panel/cronograma")({
@@ -41,6 +42,7 @@ function resumenTurno(registro: any | null) {
 
 function CronogramaPage() {
   const { comedor, loading } = useMiComedor();
+  const canWrite = useCanWrite();
   const [lunes, setLunes] = useState(startOfWeek());
   const [dias, setDias] = useState<any[]>([]);
   const [socias, setSocias] = useState<string[]>([]);
@@ -146,6 +148,7 @@ function CronogramaPage() {
       />
 
       <div className="flex flex-col gap-3">
+        <PanelWriteGate>
         <div className="flex justify-end">
           <button
             type="button"
@@ -155,6 +158,7 @@ function CronogramaPage() {
             Repetir semana anterior
           </button>
         </div>
+        </PanelWriteGate>
 
         {dias.map((d) => {
           const quien = resumenTurno(d.registro);
@@ -176,6 +180,7 @@ function CronogramaPage() {
                   <span className="text-[15px] text-[#0A5F82] mt-0.5">{d.registro.notas}</span>
                 )}
               </div>
+              <PanelWriteGate>
               <button
                 type="button"
                 onClick={() => setEditar(d.fecha)}
@@ -183,12 +188,13 @@ function CronogramaPage() {
               >
                 Asignar turno
               </button>
+              </PanelWriteGate>
             </div>
           );
         })}
       </div>
 
-      {editar && (
+      {editar && canWrite && (
         <FormCrono
           comedorId={comedor.id}
           fecha={editar}

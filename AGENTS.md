@@ -7,6 +7,8 @@
 - User-facing UI copy may stay in Spanish.
 - Do not rename the existing schema (`comedores`, `usuarios_comedor`, and other legacy Spanish names). English applies to new code and new tables.
 - Buttons that persist data (save, create, publish, confirm) lock on the first click: `disabled` plus a loading label until the request finishes. Use `useSubmitLock` (ref-based). React state alone is not enough. UI copy stays in Spanish (`Guardando…` / `Creando…`).
+- Form validation and error messages must be user-friendly Spanish. Never show raw Postgres, Supabase Auth, constraint, RLS, or enum text (`invalid input value for enum…`, `duplicate key…`, `row-level security policy…`, `already been registered`). Translate those in a helper (`friendlySupabaseError` in the panel, `friendlyCreateStaffError` / `friendlyCreatePlatformUserError` in admin) and cover it with tests.
+- Supervisor with access `view` in `/panel`: hide all create/edit/delete actions in the UI (`PanelCta`, `PanelWriteGate`, `useCanWrite`). Do not rely on RLS errors to block writes the user can still attempt from the UI.
 
 ## Platform roles
 

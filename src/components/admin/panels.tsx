@@ -9,7 +9,7 @@ import {
   listPlatformUsers, createPlatformUser, updatePlatformUser, deletePlatformUser,
 } from "@/lib/supervisor.functions";
 import { SUPERVISOR_KITCHEN_STORAGE_KEY, type AccessLevel } from "@/lib/access";
-import { needsSupervisorFields, type PlatformRole } from "@/lib/supervisor";
+import { needsSupervisorFields, friendlyCreatePlatformUserError, type PlatformRole } from "@/lib/supervisor";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { EnlaceInvitacion } from "@/components/EnlaceInvitacion";
 import {
@@ -870,7 +870,7 @@ export function PanelPlatformUsers({
                 closeCreate();
                 cargar();
               } catch (e: any) {
-                setErr(e?.message ?? "No se pudo crear");
+                setErr(friendlyCreatePlatformUserError(e?.message ?? ""));
               }
             });
           }}
@@ -1023,7 +1023,7 @@ export function PanelPlatformUsers({
                   setEditando(null);
                   cargar();
                 } catch (e: any) {
-                  setErr(e?.message ?? "No se pudo guardar");
+                  setErr(friendlyCreatePlatformUserError(e?.message ?? ""));
                 }
               });
             }}

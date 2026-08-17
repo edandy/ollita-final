@@ -94,3 +94,21 @@ export function validateUpdatePlatformUser(input: {
   }
   return { userId: input.userId, name, role, accessLevel, comedorIds };
 }
+
+export function friendlyCreatePlatformUserError(message: string) {
+  const text = (message ?? "").toLowerCase();
+  if (text.includes("invalid input value for enum") || text.includes("app_role")) {
+    return "No se pudo crear el supervisor. Falta configurar el rol en la base de datos.";
+  }
+  if (text.includes("already registered") || text.includes("already been registered") || text.includes("email address has already")) {
+    return "Este DNI ya tiene una cuenta";
+  }
+  if (text.includes("duplicate") || text.includes("unique")) {
+    return "Esa persona ya tiene una cuenta de plataforma";
+  }
+  const looksTechnical = /violates|constraint|column|relation|permission|jwt|undefined|null value|schema cache|exploded/.test(text);
+  if (!text.trim() || looksTechnical) {
+    return "No pudimos crear la cuenta. Revisa los datos e inténtalo de nuevo.";
+  }
+  return message;
+}

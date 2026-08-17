@@ -1,7 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useKitchenAccess } from "@/lib/kitchen-access-context";
+import { useCanWrite, useKitchenAccess } from "@/lib/kitchen-access-context";
+
+export { useCanWrite, useKitchenAccess };
+
+export function PanelWriteGate({ children }: { children: ReactNode }) {
+  const canWrite = useCanWrite();
+  if (!canWrite) return null;
+  return <>{children}</>;
+}
 
 export function PanelShell({ children }: { children: ReactNode }) {
   return (
@@ -61,8 +69,9 @@ export function PanelCta({
   loadingText?: string;
   className?: string;
 }) {
-  const { readOnly } = useKitchenAccess();
-  const blocked = disabled || loading || (readOnly && variant !== "ghost");
+  const canWrite = useCanWrite();
+  if (!canWrite) return null;
+  const blocked = disabled || loading;
   const styles = {
     primary: "bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] border-0",
     secondary: "bg-white text-[#0F7BA8] border border-[#0F7BA8] hover:bg-terracota-suave",

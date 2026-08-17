@@ -6,8 +6,10 @@ import { useSubmitLock } from "@/lib/submit-lock";
 import { Plus, Minus, FileText } from "lucide-react";
 import {
   PanelShell, PanelBack, PanelTitle, PanelCta, PanelField,
-  PanelOverlay, panelInputClass,
+  PanelOverlay, panelInputClass, PanelWriteGate,
 } from "@/components/panel-ui";
+import { useCanWrite } from "@/lib/kitchen-access-context";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
 
 export const Route = createFileRoute("/_authenticated/panel/insumos")({
   head: () => ({ meta: [{ title: "Almacén — La Ollita" }] }),
@@ -47,6 +49,7 @@ function semaforo(dias: number, consumo: number) {
 
 function InsumosPage() {
   const { comedor, loading } = useMiComedor();
+  const canWrite = useCanWrite();
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [consumos, setConsumos] = useState<Record<string, number>>({});
   const [agregando, setAgregando] = useState(false);
@@ -106,7 +109,9 @@ function InsumosPage() {
       <div className="flex flex-col gap-4">
         {insumos.length === 0 && (
           <div className="bg-white border border-[#E0E0E0] rounded-[20px] p-[22px] text-center text-[17px] text-[#718096]">
-            Aún no registras insumos. Toca <strong className="text-[#072249]">+ Insumo</strong> para empezar.
+            {canWrite
+              ? <>Aún no registras insumos. Toca <strong className="text-[#072249]">+ Insumo</strong> para empezar.</>
+              : "Aún no hay insumos registrados en este almacén."}
           </div>
         )}
 
@@ -144,6 +149,7 @@ function InsumosPage() {
                     : `Te alcanza ${dias} día${dias === 1 ? "" : "s"} más`}
               </p>
 
+              <PanelWriteGate>
               <div className="flex gap-2.5 flex-wrap">
                 <button
                   type="button"
@@ -164,6 +170,7 @@ function InsumosPage() {
                   <Minus size={20} strokeWidth={2} /> Usé hoy
                 </button>
               </div>
+              </PanelWriteGate>
             </div>
           );
         })}
@@ -177,8 +184,8 @@ function InsumosPage() {
         </button>
       </div>
 
-      {agregando && <FormInsumo comedorId={comedor.id} cerrar={() => { setAgregando(false); cargar(); }} />}
-      {movimiento && <FormMovimiento {...movimiento} cerrar={() => { setMovimiento(null); cargar(); }} />}
+      {agregando && canWrite && <FormInsumo comedorId={comedor.id} cerrar={() => { setAgregando(false); cargar(); }} />}
+      {movimiento && canWrite && <FormMovimiento {...movimiento} cerrar={() => { setMovimiento(null); cargar(); }} />}
       {reporte && <ReporteGastos insumos={insumos} cerrar={() => setReporte(false)} />}
     </PanelShell>
   );
@@ -307,7 +314,7 @@ function FormInsumo({ comedorId, cerrar }: { comedorId: string; cerrar: () => vo
         precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
         origen,
       });
-      if (error) { alert(error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       cerrar();
     });
   };
@@ -377,7 +384,7 @@ function FormMovimiento({ insumo, tipo, cantidad: cantIni, cerrar }: { insumo: I
         precio_unitario: tipo === "ingreso" && origenMov === "compra" && precio ? Number(precio) : null,
       });
       const { error: e2 } = await supabase.from("insumos").update({ stock_actual: Math.max(0, nuevoStock) }).eq("id", insumo.id);
-      if (e1 || e2) { alert((e1 ?? e2)!.message); return; }
+      if (e1 || e2) { alert(friendlySupabaseError((e1 ?? e2)!.message)); return; }
       cerrar();
     });
   };

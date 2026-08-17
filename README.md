@@ -102,6 +102,9 @@ Si el segundo falla, confirma que el primero ya corrió y vuelve a lanzar solo e
 
 Otras migraciones recientes que también hay que tener aplicadas:
 
+- `20260817140000_app_role_supervisor.sql` — `ALTER TYPE app_role ADD VALUE 'supervisor'` (sin esto el alta de supervisor falla)
+- `20260817140001_supervisors.sql` — tablas `supervisors` / `supervisor_assignments`
+- `20260817153000_supervisor_dni_phone.sql` — columnas `dni` y `phone` en `supervisors`
 - `20260813210000_precio_menu_publico.sql` — precio al público en el perfil del comedor
 - `20260812230000_storage_fotos_bucket_policies.sql` — bucket `fotos` (si aún usas Storage de Supabase para algo; las fotos de la app van a Spaces)
 

@@ -8,6 +8,9 @@ import {
 import { useMiComedor } from "@/lib/useMiComedor";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { subirFoto } from "@/lib/subirFoto";
+import { useCanWrite } from "@/lib/kitchen-access-context";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { PanelWriteGate } from "@/components/panel-ui";
 
 export const Route = createFileRoute("/_authenticated/panel/")({
   head: () => ({ meta: [{ title: "Hoy — La Ollita" }] }),
@@ -92,7 +95,8 @@ function Hoy() {
   }, [comedor?.id]);
 
   if (loading || !comedor) return null;
-  const readOnly = !!vinculo?.esSoloLectura;
+  const canWrite = useCanWrite();
+  const readOnly = !canWrite;
 
   const marcar = (paso: string, valor: boolean, set: (v: boolean) => void) => {
     if (readOnly) return;
@@ -116,7 +120,7 @@ function Hoy() {
         raciones_disponibles: r,
         foto_url: foto,
       }, { onConflict: "comedor_id,fecha" });
-      if (error) { alert("No pudimos publicar: " + error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       setPlato(""); setDescripcion(""); setFoto(null);
       setAbierto(3);
       await cargar();
@@ -128,7 +132,7 @@ function Hoy() {
     const file = e.target.files?.[0]; if (!file || !comedor) return;
     setSubiendoFoto(true);
     try { const url = await subirFoto(file, `comedor/${comedor.id}/menus`); setFoto(url); }
-    catch (err: any) { alert("No pudimos subir la foto: " + (err?.message ?? err)); }
+    catch (err: any) { alert(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
     finally { setSubiendoFoto(false); }
   };
 
@@ -169,7 +173,7 @@ function Hoy() {
         dni: benefSel?.dni ?? null,
         beneficiario_id: benefSel?.id ?? null,
       } as any);
-      if (error) { alert(error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       const { data: caja } = await supabase.from("caja_dias")
         .select("id, cerrado").eq("comedor_id", comedor.id).eq("fecha", hoyISO()).maybeSingle();
       if (caja && !(caja as any).cerrado) {
@@ -260,15 +264,18 @@ function Hoy() {
                 )}
                 <div className="flex flex-col gap-2.5">
                   <Link to="/panel/insumos" className="btn-grande bg-white border border-[#E0E0E0] text-[#475569]">Ver el almacén</Link>
-                  <button type="button" onClick={() => { marcar("revision", !revisado, setRevisado); if (!revisado) setAbierto(2); }}
-                    className={`btn-grande ${revisado ? "bg-white border border-[#E0E0E0] text-[#475569]" : "border-0 bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"}`}>
-                    {revisado ? "Desmarcar revisión" : "Ya revisé el almacén"}
-                  </button>
+                  <PanelWriteGate>
+                    <button type="button" onClick={() => { marcar("revision", !revisado, setRevisado); if (!revisado) setAbierto(2); }}
+                      className={`btn-grande ${revisado ? "bg-white border border-[#E0E0E0] text-[#475569]" : "border-0 bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"}`}>
+                      {revisado ? "Desmarcar revisión" : "Ya revisé el almacén"}
+                    </button>
+                  </PanelWriteGate>
                 </div>
               </div>
             )}
 
             {p.n === 2 && (!menu ? (
+              <PanelWriteGate>
               <form onSubmit={publicar} className="flex flex-col gap-3.5">
                 <p className="text-[17px] text-[#475569] leading-snug">Escribe el plato del día, las raciones y el precio.</p>
                 <Campo label="Plato">
@@ -309,6 +316,7 @@ function Hoy() {
                   {publicando ? "Publicando…" : "Publicar menú"}
                 </button>
               </form>
+              </PanelWriteGate>
             ) : (
               <div className="flex flex-col gap-3.5">
                 <p className="text-[17px] text-[#475569] leading-snug">Ya está publicado. Compártelo para que lleguen reservas.</p>
@@ -323,9 +331,11 @@ function Hoy() {
                     className="btn-grande border-0 bg-bosque text-white hover:bg-[#0A2E5E]">
                     <Share2 size={18} /> Compartir por WhatsApp
                   </a>
-                  <Link to="/panel/menu" className="btn-grande bg-white border border-[#E0E0E0] text-[#475569]">
-                    <Pencil size={14} /> Cambiar el menú
-                  </Link>
+                  <PanelWriteGate>
+                    <Link to="/panel/menu" className="btn-grande bg-white border border-[#E0E0E0] text-[#475569]">
+                      <Pencil size={14} /> Cambiar el menú
+                    </Link>
+                  </PanelWriteGate>
                 </div>
               </div>
             ))}
@@ -333,6 +343,7 @@ function Hoy() {
             {p.n === 3 && (
               <div className="flex flex-col gap-3.5">
                 <p className="text-[17px] text-[#475569] leading-snug">Si compraste algo hoy, regístralo: entra al almacén y sale de la caja.</p>
+                <PanelWriteGate>
                 <div className="flex flex-col gap-2.5">
                   <button type="button" onClick={() => setCompraAbierta(true)} disabled={insumos.length === 0}
                     className="btn-grande border-0 bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-50">
@@ -347,12 +358,14 @@ function Hoy() {
                     {compraLista ? "Desmarcar" : "No necesito comprar hoy"}
                   </button>
                 </div>
+                </PanelWriteGate>
               </div>
             )}
 
             {p.n === 4 && (
               <div className="flex flex-col gap-3.5">
                 <p className="text-[17px] text-[#475569] leading-snug">Anota cuánto usaste de cada insumo para que baje del almacén.</p>
+                <PanelWriteGate>
                 <div className="flex flex-col gap-2.5">
                   <button type="button" onClick={() => setConsumoAbierto(true)} disabled={insumos.length === 0}
                     className="btn-grande border-0 bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]">
@@ -363,6 +376,7 @@ function Hoy() {
                     {cocinaLista ? "Desmarcar" : "La comida ya está lista"}
                   </button>
                 </div>
+                </PanelWriteGate>
               </div>
             )}
 
@@ -396,14 +410,17 @@ function Hoy() {
                       {r.estado === "recogida" ? (
                         <span className="text-[#248341] text-[15px] font-bold flex items-center gap-1 shrink-0"><CheckCircle2 size={16} /> Entregada</span>
                       ) : (
-                        <button onClick={() => marcarRecogida(r.id)} className="shrink-0 min-h-[52px] px-5 bg-[#0F7BA8] text-white rounded-full text-[16px] font-semibold">
-                          Entregar
-                        </button>
+                        <PanelWriteGate>
+                          <button onClick={() => marcarRecogida(r.id)} className="shrink-0 min-h-[52px] px-5 bg-[#0F7BA8] text-white rounded-full text-[16px] font-semibold">
+                            Entregar
+                          </button>
+                        </PanelWriteGate>
                       )}
                     </div>
                   ))}
                 </div>
 
+                <PanelWriteGate>
                 <div className="border-t border-[#F0F0F0] pt-4 flex flex-col gap-3">
                   <h4 className="text-[17px] font-bold text-bosque">Entregar sin reserva</h4>
                   {disponibles > 0 ? (
@@ -467,6 +484,7 @@ function Hoy() {
                     <p className="text-[16px] text-[#718096]">No quedan raciones disponibles.</p>
                   )}
                 </div>
+                </PanelWriteGate>
               </div>
             ))}
           </Paso>
@@ -475,21 +493,21 @@ function Hoy() {
       })}
       </div>
 
-      {consumoAbierto && (
+      {consumoAbierto && canWrite && (
         <ConsumoModal insumos={insumos} cerrar={(guardo) => {
           setConsumoAbierto(false);
           if (guardo) marcar("cocina", true, setCocinaLista);
           cargar();
         }} />
       )}
-      {compraAbierta && (
+      {compraAbierta && canWrite && (
         <CompraModal insumos={insumos} comedor={comedor} onListaCambiada={cargar} cerrar={(guardo) => {
           setCompraAbierta(false);
           if (guardo) marcar("compra", true, setCompraLista);
           cargar();
         }} />
       )}
-      {agregarInsumo && comedor && (
+      {agregarInsumo && comedor && canWrite && (
         <FormInsumoHoy
           comedorId={comedor.id}
           cerrar={() => setAgregarInsumo(false)}
@@ -580,7 +598,7 @@ function CompraModal({ insumos: inicial, comedor, onListaCambiada, cerrar }: {
       }
       if (movimientos.length === 0) { cerrar(false); return; }
       const { error } = await supabase.from("movimientos_insumo").insert(movimientos);
-      if (error) { alert(error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       await Promise.all(updates);
       if (total > 0) {
         const { data: caja } = await supabase.from("caja_dias")
@@ -675,7 +693,7 @@ function FormInsumoHoy({
         precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
         origen,
       }).select("id,nombre,unidad,stock_actual,consumo_diario_promedio,precio_referencial").single();
-      if (error) { alert(error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       alCrear(data);
     });
   };
@@ -751,7 +769,7 @@ function ConsumoModal({ insumos, cerrar }: { insumos: any[]; cerrar: (guardo: bo
       }
       if (movimientos.length === 0) { cerrar(false); return; }
       const { error } = await supabase.from("movimientos_insumo").insert(movimientos);
-      if (error) { alert(error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       await Promise.all(updates);
       cerrar(true);
     });

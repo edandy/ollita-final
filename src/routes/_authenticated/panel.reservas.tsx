@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { Share2, Copy, Plus, Trash2, Search } from "lucide-react";
-import { PanelShell, PanelTitle } from "@/components/panel-ui";
+import { PanelShell, PanelTitle, PanelWriteGate } from "@/components/panel-ui";
+import { useCanWrite } from "@/lib/kitchen-access-context";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
 
 export const Route = createFileRoute("/_authenticated/panel/reservas")({
   head: () => ({ meta: [{ title: "Reservas — La Ollita" }] }),
@@ -21,6 +23,7 @@ function chipClass(active: boolean) {
 
 function ReservasPage() {
   const { comedor, loading } = useMiComedor();
+  const canWrite = useCanWrite();
   const [reservas, setReservas] = useState<any[]>([]);
   const [filtro, setFiltro] = useState<"todas" | "pendientes" | "entregadas">("todas");
   const [verificar, setVerificar] = useState<any>(null);
@@ -85,7 +88,7 @@ function ReservasPage() {
     }
     const { error } = await supabase.from("reservas").delete().eq("id", r.id);
     if (error) {
-      alert("No se pudo eliminar: " + error.message);
+      alert(friendlySupabaseError(error.message));
       return;
     }
     cargar();
@@ -188,6 +191,7 @@ function ReservasPage() {
               {f.label}
             </button>
           ))}
+          <PanelWriteGate>
           <button
             type="button"
             onClick={() => setMostrarManual(true)}
@@ -196,6 +200,7 @@ function ReservasPage() {
           >
             <Plus size={20} strokeWidth={2} /> Registrar orden
           </button>
+          </PanelWriteGate>
         </div>
 
         {filtradas.length === 0 && (
@@ -256,6 +261,7 @@ function ReservasPage() {
                     Entregado
                   </button>
                 ) : (
+                  <PanelWriteGate>
                   <button
                     type="button"
                     onClick={() => setVerificar(r)}
@@ -263,8 +269,10 @@ function ReservasPage() {
                   >
                     Entregar
                   </button>
+                  </PanelWriteGate>
                 )}
 
+                <PanelWriteGate>
                 <button
                   type="button"
                   onClick={() => eliminarReserva(r)}
@@ -274,13 +282,14 @@ function ReservasPage() {
                 >
                   <Trash2 size={18} strokeWidth={2} />
                 </button>
+                </PanelWriteGate>
               </div>
             );
           })}
         </div>
       </div>
 
-      {verificar && (
+      {verificar && canWrite && (
         <VerificarDni
           reserva={verificar}
           cerrar={() => setVerificar(null)}
@@ -290,7 +299,7 @@ function ReservasPage() {
           }}
         />
       )}
-      {mostrarManual && menuHoy && (
+      {mostrarManual && menuHoy && canWrite && (
         <RegistrarOrdenManual
           comedor={comedor}
           menu={menuHoy}

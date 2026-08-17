@@ -5,6 +5,7 @@ import { useMiComedor } from "@/lib/useMiComedor";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { Plus, Heart, Camera, Trash2 } from "lucide-react";
 import { subirFoto } from "@/lib/subirFoto";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
 
 export const Route = createFileRoute("/_authenticated/panel/campanas")({
   head: () => ({ meta: [{ title: "Campañas — La Ollita" }] }),
@@ -86,7 +87,7 @@ function FormCamp({ comedorId, cerrar }: any) {
     const file = e.target.files?.[0]; if (!file) return;
     setSubiendo(true);
     try { const url = await subirFoto(file, `campanas/${comedorId}`); setFotoUrl(url); }
-    catch (err: any) { alert("No pudimos subir la foto: " + (err?.message ?? err)); }
+    catch (err: any) { alert(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
     finally { setSubiendo(false); }
   };
   const guardar = (e: React.FormEvent) => {
@@ -100,7 +101,7 @@ function FormCamp({ comedorId, cerrar }: any) {
         activa: true,
         foto_url: fotoUrl,
       } as any);
-      if (error) { alert(error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       cerrar();
     });
   };

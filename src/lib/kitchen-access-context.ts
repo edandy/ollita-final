@@ -5,3 +5,8 @@ export const KitchenAccessContext = createContext({ readOnly: false });
 export function useKitchenAccess() {
   return useContext(KitchenAccessContext);
 }
+
+export function useCanWrite() {
+  const { readOnly } = useKitchenAccess();
+  return !readOnly;
+}

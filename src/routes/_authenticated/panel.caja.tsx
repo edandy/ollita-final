@@ -5,7 +5,9 @@ import { useMiComedor } from "@/lib/useMiComedor";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { subirFoto } from "@/lib/subirFoto";
 import { Plus, Minus, Printer, Lock, Unlock, Camera, ImagePlus, X } from "lucide-react";
-import { PanelShell, PanelTitle } from "@/components/panel-ui";
+import { PanelShell, PanelTitle, PanelWriteGate } from "@/components/panel-ui";
+import { useCanWrite } from "@/lib/kitchen-access-context";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
 
 export const Route = createFileRoute("/_authenticated/panel/caja")({
   head: () => ({ meta: [{ title: "Caja — La Ollita" }] }),
@@ -58,6 +60,7 @@ const EGR_OPTS = [
 
 function CajaPage() {
   const { comedor, loading } = useMiComedor();
+  const canWrite = useCanWrite();
   const [caja, setCaja] = useState<Caja | null>(null);
   const [trx, setTrx] = useState<Trx[]>([]);
   const [mes, setMes] = useState<Caja[]>([]);
@@ -102,7 +105,7 @@ function CajaPage() {
         .from("caja_dias")
         .insert({ comedor_id: comedor.id, fecha: hoy, capital_inicial: Number(capitalInicial) });
       if (error) {
-        alert(error.message);
+        alert(friendlySupabaseError(error.message));
         return;
       }
       await cargar();
@@ -142,25 +145,29 @@ function CajaPage() {
       <div className="flex flex-col gap-4">
         {!caja ? (
           <section className="bg-white border border-[#E0E0E0] rounded-[20px] p-[22px] flex flex-col gap-4">
-            <p className="text-[17px] text-[#475569]">Aún no abres la caja de hoy.</p>
-            <label className="flex flex-col gap-2">
-              <span className="text-[15px] font-semibold text-[#072249]">Capital inicial (S/)</span>
-              <input
-                type="number"
-                step="0.10"
-                value={capitalInicial}
-                onChange={(e) => setCapitalInicial(e.target.value)}
-                className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8]"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={abrir}
-              disabled={abriendo}
-              className="min-h-[58px] rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-60"
-            >
-              {abriendo ? "Abriendo…" : "Abrir caja"}
-            </button>
+            <p className="text-[17px] text-[#475569]">
+              {canWrite ? "Aún no abres la caja de hoy." : "La caja de hoy aún no está abierta."}
+            </p>
+            <PanelWriteGate>
+              <label className="flex flex-col gap-2">
+                <span className="text-[15px] font-semibold text-[#072249]">Capital inicial (S/)</span>
+                <input
+                  type="number"
+                  step="0.10"
+                  value={capitalInicial}
+                  onChange={(e) => setCapitalInicial(e.target.value)}
+                  className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8]"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={abrir}
+                disabled={abriendo}
+                className="min-h-[58px] rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-60"
+              >
+                {abriendo ? "Abriendo…" : "Abrir caja"}
+              </button>
+            </PanelWriteGate>
           </section>
         ) : (
           <>
@@ -184,22 +191,24 @@ function CajaPage() {
             </section>
 
             {!caja.cerrado ? (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormTrx("ingreso")}
-                  className="min-h-[60px] gap-2 flex items-center justify-center rounded-full bg-[#0F7BA8] text-white text-[18px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"
-                >
-                  <Plus size={24} strokeWidth={2} /> Ingreso
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormTrx("egreso")}
-                  className="min-h-[60px] gap-2 flex items-center justify-center rounded-full border border-[#0F7BA8] bg-white text-[#0F7BA8] text-[18px] font-semibold hover:bg-[#C5EBF9]"
-                >
-                  <Minus size={24} strokeWidth={2} /> Egreso
-                </button>
-              </div>
+              <PanelWriteGate>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormTrx("ingreso")}
+                    className="min-h-[60px] gap-2 flex items-center justify-center rounded-full bg-[#0F7BA8] text-white text-[18px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"
+                  >
+                    <Plus size={24} strokeWidth={2} /> Ingreso
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormTrx("egreso")}
+                    className="min-h-[60px] gap-2 flex items-center justify-center rounded-full border border-[#0F7BA8] bg-white text-[#0F7BA8] text-[18px] font-semibold hover:bg-[#C5EBF9]"
+                  >
+                    <Minus size={24} strokeWidth={2} /> Egreso
+                  </button>
+                </div>
+              </PanelWriteGate>
             ) : (
               <CajaCerrada caja={caja} onReabrir={cargar} />
             )}
@@ -243,15 +252,17 @@ function CajaPage() {
                   </div>
                 );
               })}
-              {!caja.cerrado && trx.length > 0 && (
-                <button
-                  type="button"
-                  onClick={cerrar}
-                  className="min-h-14 rounded-full bg-[#072249] text-white text-[17px] font-semibold hover:bg-[#0A2E5E] mt-1"
-                >
-                  Cerrar día
-                </button>
-              )}
+              <PanelWriteGate>
+                {!caja.cerrado && trx.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={cerrar}
+                    className="min-h-14 rounded-full bg-[#072249] text-white text-[17px] font-semibold hover:bg-[#0A2E5E] mt-1"
+                  >
+                    Cerrar día
+                  </button>
+                )}
+              </PanelWriteGate>
             </section>
           </>
         )}
@@ -295,7 +306,7 @@ function CajaPage() {
         </section>
       </div>
 
-      {formTrx && caja && (
+      {formTrx && caja && canWrite && (
         <FormTrx
           tipo={formTrx}
           cajaId={caja.id}
@@ -330,7 +341,7 @@ function CajaCerrada({ caja, onReabrir }: { caja: Caja; onReabrir: () => void })
       if (p >= 1) {
         t.current = null;
         const { error } = await supabase.from("caja_dias").update({ cerrado: false }).eq("id", caja.id);
-        if (error) alert(error.message);
+        if (error) alert(friendlySupabaseError(error.message));
         else onReabrir();
         return;
       }
@@ -346,23 +357,25 @@ function CajaCerrada({ caja, onReabrir }: { caja: Caja; onReabrir: () => void })
       <p className="text-[16px]">
         Ganancia del día: <strong>S/ {Number(caja.ganancia).toFixed(2)}</strong>
       </p>
-      <button
-        type="button"
-        onPointerDown={empezar}
-        onPointerUp={detener}
-        onPointerLeave={detener}
-        onPointerCancel={detener}
-        className="relative w-full overflow-hidden bg-white border border-[#E0E0E0] rounded-full min-h-14 text-[#072249] font-semibold text-[16px] flex items-center justify-center gap-2 select-none"
-      >
-        <span
-          className="absolute inset-0 bg-[rgba(15,123,168,0.15)] origin-left"
-          style={{ transform: `scaleX(${progreso})`, transition: progreso === 0 ? "transform .2s" : "none" }}
-        />
-        <Unlock size={18} className="relative" />
-        <span className="relative">
-          {progreso > 0 ? "Mantén presionado…" : "Mantén presionado para reabrir"}
-        </span>
-      </button>
+      <PanelWriteGate>
+        <button
+          type="button"
+          onPointerDown={empezar}
+          onPointerUp={detener}
+          onPointerLeave={detener}
+          onPointerCancel={detener}
+          className="relative w-full overflow-hidden bg-white border border-[#E0E0E0] rounded-full min-h-14 text-[#072249] font-semibold text-[16px] flex items-center justify-center gap-2 select-none"
+        >
+          <span
+            className="absolute inset-0 bg-[rgba(15,123,168,0.15)] origin-left"
+            style={{ transform: `scaleX(${progreso})`, transition: progreso === 0 ? "transform .2s" : "none" }}
+          />
+          <Unlock size={18} className="relative" />
+          <span className="relative">
+            {progreso > 0 ? "Mantén presionado…" : "Mantén presionado para reabrir"}
+          </span>
+        </button>
+      </PanelWriteGate>
     </div>
   );
 }
@@ -428,7 +441,7 @@ function FormTrx({
     try {
       setComprobante(await subirFoto(file, `comedor/${comedorId}/comprobantes`));
     } catch (err: any) {
-      alert(err?.message ?? "No se pudo subir la foto");
+      alert(friendlySupabaseError(err?.message ?? "No se pudo subir la foto"));
     } finally {
       setSubiendo(false);
     }
@@ -446,7 +459,7 @@ function FormTrx({
         comprobante_url: comprobante,
       });
       if (error) {
-        alert(error.message);
+        alert(friendlySupabaseError(error.message));
         return;
       }
       cerrar();

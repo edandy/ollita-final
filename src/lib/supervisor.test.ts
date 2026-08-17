@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  friendlyCreatePlatformUserError,
   needsSupervisorFields,
   parsePlatformRole,
   validateCreatePlatformUser,
@@ -104,5 +105,36 @@ describe("validateUpdatePlatformUser", () => {
       accessLevel: null,
       comedorIds: [],
     });
+  });
+});
+
+describe("friendlyCreatePlatformUserError", () => {
+  it("translates a missing app_role enum value", () => {
+    expect(friendlyCreatePlatformUserError('invalid input value for enum app_role: "supervisor"')).toBe(
+      "No se pudo crear el supervisor. Falta configurar el rol en la base de datos.",
+    );
+  });
+
+  it("translates a duplicated auth email", () => {
+    expect(friendlyCreatePlatformUserError("A user with this email address has already been registered")).toBe(
+      "Este DNI ya tiene una cuenta",
+    );
+  });
+
+  it("translates a unique violation", () => {
+    expect(friendlyCreatePlatformUserError("duplicate key value violates unique constraint")).toBe(
+      "Esa persona ya tiene una cuenta de plataforma",
+    );
+  });
+
+  it("falls back to a generic message for other technical errors", () => {
+    expect(friendlyCreatePlatformUserError("something exploded")).toBe(
+      "No pudimos crear la cuenta. Revisa los datos e inténtalo de nuevo.",
+    );
+  });
+
+  it("keeps already friendly Spanish messages", () => {
+    expect(friendlyCreatePlatformUserError("Pon el nombre")).toBe("Pon el nombre");
+    expect(friendlyCreatePlatformUserError("Asigna al menos una olla")).toBe("Asigna al menos una olla");
   });
 });

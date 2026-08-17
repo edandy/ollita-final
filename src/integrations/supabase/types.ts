@@ -958,6 +958,7 @@ export type Database = {
       }
       can_view_comedor: { Args: { _comedor_id: string }; Returns: boolean }
       can_write_comedor: { Args: { _comedor_id: string }; Returns: boolean }
+      auth_user_id_by_email: { Args: { _email: string }; Returns: string | null }
       es_miembro_de: { Args: { _comedor_id: string }; Returns: boolean }
       has_role: {
         Args: {

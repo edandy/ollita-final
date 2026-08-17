@@ -9,6 +9,8 @@ import {
   PanelShell, PanelBack, PanelTitle, PanelCard, PanelCta, PanelField,
   panelInputClass,
 } from "@/components/panel-ui";
+import { useCanWrite } from "@/lib/kitchen-access-context";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
 
 export const Route = createFileRoute("/_authenticated/panel/menu")({
   head: () => ({ meta: [{ title: "Menús — La Ollita" }] }),
@@ -22,6 +24,7 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 function MenuPage() {
   const { comedor, loading } = useMiComedor();
+  const canWrite = useCanWrite();
   const hoy = iso(new Date());
   const [fecha, setFecha] = useState<string>(hoy);
   const [menu, setMenu] = useState<any>(null);
@@ -70,7 +73,7 @@ function MenuPage() {
     const file = e.target.files?.[0]; if (!file) return;
     setSubiendo(true);
     try { const url = await subirFoto(file, `comedor/${comedor.id}/menus`); setFoto(url); }
-    catch (err: any) { alert("No pudimos subir la foto: " + (err?.message ?? err)); }
+    catch (err: any) { alert(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
     finally { setSubiendo(false); }
   };
 
@@ -89,7 +92,7 @@ function MenuPage() {
         foto_url: foto,
         raciones_disponibles: r,
       } as any, { onConflict: "comedor_id,fecha" });
-      if (error) { alert(error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       setOk(true); setTimeout(() => setOk(false), 1500);
       await cargar();
     });
@@ -114,7 +117,7 @@ function MenuPage() {
         };
       });
       const { error } = await supabase.from("menus").upsert(filas as any, { onConflict: "comedor_id,fecha" });
-      if (error) { alert(error.message); return; }
+      if (error) { alert(friendlySupabaseError(error.message)); return; }
       setOk(true); setTimeout(() => setOk(false), 1500);
       await cargar();
     });
@@ -164,6 +167,7 @@ function MenuPage() {
         </div>
       </div>
 
+      {canWrite ? (
       <form onSubmit={guardar}>
         <PanelCard>
           <p className="text-[13px] font-bold tracking-[0.06em] text-[#718096] uppercase">
@@ -216,6 +220,25 @@ function MenuPage() {
           )}
         </PanelCard>
       </form>
+      ) : (
+        <PanelCard>
+          <p className="text-[13px] font-bold tracking-[0.06em] text-[#718096] uppercase">
+            {DIAS[sel.getDay()]} {sel.getDate()} de {MESES[sel.getMonth()]}
+          </p>
+          {menu ? (
+            <>
+              {menu.foto_url && <img src={menu.foto_url} alt="" className="w-full h-48 object-cover rounded-[16px]" />}
+              <p className="text-[22px] font-bold text-bosque">{menu.nombre_plato}</p>
+              {menu.descripcion && <p className="text-[16px] text-[#718096]">{menu.descripcion}</p>}
+              <p className="text-[17px] text-[#475569]">
+                {menu.raciones_disponibles} raciones · S/ {Number(menu.precio).toFixed(2)}
+              </p>
+            </>
+          ) : (
+            <p className="text-[17px] text-[#718096]">Sin menú publicado para este día.</p>
+          )}
+        </PanelCard>
+      )}
     </PanelShell>
   );
 }

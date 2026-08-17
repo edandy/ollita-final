@@ -101,6 +101,15 @@ function AuthPage() {
           telefono, dni,
         });
         if (eV) { setError("Creamos tu cuenta pero no pudimos vincularte al comedor. Intenta iniciar sesión."); return; }
+        await supabase.from("beneficiarios").upsert({
+          comedor_id: comedor.id,
+          nombre_completo: nombre.trim(),
+          dni,
+          telefono: telefono || null,
+          categoria: "socia_familia",
+          carga_familiar: 0,
+          activo: true,
+        }, { onConflict: "comedor_id,dni" });
         navigate({ to: "/panel" });
       } else {
         const { error: eC } = await supabase.from("clientes").insert({

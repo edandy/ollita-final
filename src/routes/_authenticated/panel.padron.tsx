@@ -1,13 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { ImportarPadron } from "@/components/ImportarPadron";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { UserPlus, Upload, Search, Pencil, Trash2, Download, AlertTriangle } from "lucide-react";
 import {
-  PanelShell, PanelBack, PanelTitle, PanelCta, PanelField, PanelOverlay, panelInputClass,
+  PanelShell, PanelBack, PanelTitle, PanelCta, PanelField, PanelOverlay, panelInputClass, PanelWriteGate,
 } from "@/components/panel-ui";
+import { useCanWrite } from "@/lib/kitchen-access-context";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { crearBeneficiario, sincronizarEquipoEnPadron } from "@/lib/padron.functions";
+import {
+  canRemoveBeneficiary,
+  friendlyCreateBeneficiaryError,
+  padronStaffCargo,
+  validateCreateBeneficiary,
+  validateUpdateBeneficiary,
+} from "@/lib/padron";
+import { CARGO_LABEL, type Cargo } from "@/lib/permisos";
 
 export const Route = createFileRoute("/_authenticated/panel/padron")({
   head: () => ({ meta: [{ title: "Padrón — La Ollita" }] }),
@@ -61,7 +73,10 @@ function chipMes(active: boolean) {
 
 function PadronPage() {
   const { comedor, loading } = useMiComedor();
+  const canWrite = useCanWrite();
+  const fnSyncEquipo = useServerFn(sincronizarEquipoEnPadron);
   const [lista, setLista] = useState<B[]>([]);
+  const [cargoPorDni, setCargoPorDni] = useState<Record<string, Cargo>>({});
   const [dniBusq, setDniBusq] = useState("");
   const [edicion, setEdicion] = useState<{ open: boolean; b?: B }>({ open: false });
   const [importar, setImportar] = useState(false);
@@ -70,12 +85,27 @@ function PadronPage() {
 
   const cargar = async () => {
     if (!comedor) return;
-    const { data } = await supabase
-      .from("beneficiarios")
-      .select("*")
-      .eq("comedor_id", comedor.id)
-      .order("nombre_completo");
+    if (canWrite) {
+      try { await fnSyncEquipo({ data: { comedor_id: comedor.id } }); } catch { /* noop */ }
+    }
+    const [{ data }, { data: staff }] = await Promise.all([
+      supabase
+        .from("beneficiarios")
+        .select("*")
+        .eq("comedor_id", comedor.id)
+        .order("nombre_completo"),
+      supabase
+        .from("usuarios_comedor")
+        .select("dni, cargo")
+        .eq("comedor_id", comedor.id)
+        .neq("cargo", "socia"),
+    ]);
     setLista((data as B[]) ?? []);
+    const map: Record<string, Cargo> = {};
+    for (const row of staff ?? []) {
+      if (row.dni && padronStaffCargo(row.cargo)) map[row.dni] = row.cargo as Cargo;
+    }
+    setCargoPorDni(map);
   };
   useEffect(() => {
     cargar();
@@ -191,9 +221,19 @@ function PadronPage() {
 
   const eliminar = async (b: B) => {
     if (!confirm(`¿Quitar a ${b.nombre_completo} del padrón?`)) return;
+    const { data: member } = await supabase
+      .from("usuarios_comedor")
+      .select("cargo")
+      .eq("comedor_id", comedor!.id)
+      .eq("dni", b.dni)
+      .maybeSingle();
+    if (!canRemoveBeneficiary(member?.cargo)) {
+      alert(friendlyCreateBeneficiaryError("staff_in_padron"));
+      return;
+    }
     const { error } = await supabase.from("beneficiarios").delete().eq("id", b.id);
     if (error) {
-      alert(error.message);
+      alert(friendlyCreateBeneficiaryError(error.message));
       return;
     }
     cargar();
@@ -245,6 +285,7 @@ function PadronPage() {
           </div>
         )}
 
+        <PanelWriteGate>
         <div className="flex gap-2.5 flex-wrap">
           <button
             type="button"
@@ -261,6 +302,7 @@ function PadronPage() {
             <Upload size={22} strokeWidth={1.75} /> Importar de Excel
           </button>
         </div>
+        </PanelWriteGate>
 
         <section className="bg-white border border-[#E0E0E0] rounded-[20px] p-[22px] flex flex-col gap-3">
           <label className="text-[15px] font-semibold text-[#072249]">Buscar por DNI</label>
@@ -298,11 +340,17 @@ function PadronPage() {
                 </span>
                 <span className="text-[16px] text-[#718096]">DNI {b.dni}</span>
               </div>
+              {padronStaffCargo(cargoPorDni[b.dni]) && (
+                <span className="text-[15px] font-bold px-3 py-[7px] rounded-md whitespace-nowrap bg-[#C5EBF9] text-[#072249]">
+                  {CARGO_LABEL[cargoPorDni[b.dni]!]}
+                </span>
+              )}
               <span
                 className={`text-[15px] font-bold px-3 py-[7px] rounded-md whitespace-nowrap ${chipCat(b.categoria)}`}
               >
                 {CAT_CHIP[b.categoria]}
               </span>
+              <PanelWriteGate>
               <button
                 type="button"
                 title="Editar"
@@ -319,6 +367,7 @@ function PadronPage() {
               >
                 <Trash2 size={20} strokeWidth={1.75} />
               </button>
+              </PanelWriteGate>
             </div>
           ))}
           {filtrados.length === 0 && (
@@ -361,7 +410,7 @@ function PadronPage() {
         </section>
       </div>
 
-      {edicion.open && (
+      {edicion.open && canWrite && (
         <FormBenef
           comedorId={comedor.id}
           benef={edicion.b}
@@ -372,18 +421,17 @@ function PadronPage() {
         />
       )}
 
-      {importar && (
+      {importar && canWrite && (
         <PanelOverlay onClose={() => setImportar(false)}>
           <div className="flex flex-col gap-1">
             <h3 className="text-[24px] font-bold tracking-[-0.02em] text-[#072249]">Importar de Excel</h3>
             <p className="text-[17px] text-[#475569]">
-              Sube un archivo con nombre, DNI y los datos que tengas.
+              Sube un archivo con nombre, DNI, PIN y los datos que tengas.
             </p>
           </div>
           <ImportarPadron
             comedorId={comedor.id}
             alTerminar={() => {
-              setImportar(false);
               cargar();
             }}
           />
@@ -418,8 +466,10 @@ function FormBenef({
     (benef?.subtipo_caso_social as any) ?? "adulto_mayor",
   );
   const [vigencia, setVigencia] = useState(benef?.vigencia_hasta ?? "");
+  const [pin, setPin] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const { pending, run } = useSubmitLock();
+  const fnCrear = useServerFn(crearBeneficiario);
 
   const cats = [
     { key: "socia_familia" as const, label: "Socia" },
@@ -430,38 +480,73 @@ function FormBenef({
   const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
-    if (!/^\d{8}$/.test(dni)) {
-      setErr("El DNI debe tener 8 dígitos");
-      return;
-    }
-    if (telefono && !/^\d{9}$/.test(telefono)) {
-      setErr("El teléfono debe tener 9 dígitos");
-      return;
-    }
-    void run(async () => {
-      const payload: any = {
-        comedor_id: comedorId,
-        nombre_completo: nombre.trim(),
-        dni,
-        telefono: telefono || null,
-        carga_familiar: Math.max(0, Math.trunc(Number(carga) || 0)),
-        categoria,
-        subtipo_caso_social: null,
-        vigencia_hasta: null,
-      };
-      if (categoria === "caso_social") {
-        payload.subtipo_caso_social = subtipo;
-        payload.vigencia_hasta = subtipo === "adulto_mayor" ? null : vigencia || null;
-      }
-      const { error } = benef
-        ? await supabase.from("beneficiarios").update(payload).eq("id", benef.id)
-        : await supabase.from("beneficiarios").insert(payload);
-      if (error) {
-        setErr(error.message);
+    try {
+      if (benef) {
+        const data = validateUpdateBeneficiary({
+          id: benef.id,
+          nombre,
+          dni,
+          telefono,
+          categoria,
+          carga,
+          subtipo,
+          vigencia,
+          comedor_id: comedorId,
+        });
+        void run(async () => {
+          const { error } = await supabase.from("beneficiarios").update({
+            nombre_completo: data.nombre,
+            dni: data.dni,
+            telefono: data.phone,
+            carga_familiar: data.cargaFamiliar,
+            categoria: data.categoria,
+            subtipo_caso_social: data.socialSubtype,
+            vigencia_hasta: data.validUntil,
+          }).eq("id", data.id);
+          if (error) {
+            setErr(friendlyCreateBeneficiaryError(error.message));
+            return;
+          }
+          cerrar();
+        });
         return;
       }
-      cerrar();
-    });
+
+      const data = validateCreateBeneficiary({
+        nombre,
+        dni,
+        pin,
+        telefono,
+        categoria,
+        carga,
+        subtipo,
+        vigencia,
+        comedor_id: comedorId,
+      });
+      void run(async () => {
+        try {
+          const result = await fnCrear({
+            data: {
+              nombre: data.nombre,
+              dni: data.dni,
+              pin: data.pin,
+              telefono: data.phone ?? "",
+              categoria: data.categoria,
+              carga: data.cargaFamiliar,
+              subtipo: data.socialSubtype ?? "",
+              vigencia: data.validUntil ?? "",
+              comedor_id: data.comedor_id,
+            },
+          });
+          if (result.note) alert(result.note);
+          cerrar();
+        } catch (e: any) {
+          setErr(friendlyCreateBeneficiaryError(e?.message ?? ""));
+        }
+      });
+    } catch (e: any) {
+      setErr(e?.message ?? "Revisa los datos");
+    }
   };
 
   return (
@@ -470,7 +555,9 @@ function FormBenef({
         <h3 className="text-[24px] font-bold tracking-[-0.02em] text-[#072249]">
           {benef ? "Editar beneficiario" : "Nuevo beneficiario"}
         </h3>
-        <p className="text-[17px] text-[#475569]">Busca el DNI y completa lo que falte.</p>
+        <p className="text-[17px] text-[#475569]">
+          {benef ? "Actualiza los datos del padrón." : "Entra con su DNI y el PIN que le des."}
+        </p>
       </div>
       <form onSubmit={guardar} className="flex flex-col gap-[18px]">
         <PanelField label="DNI (8 dígitos)" note="Con el DNI encontramos su nombre completo.">
@@ -493,6 +580,18 @@ function FormBenef({
             placeholder="Ej. María Quispe"
           />
         </PanelField>
+        {!benef && (
+          <PanelField label="PIN (4 a 8 números)" note="Lo usa para entrar a la plataforma.">
+            <input
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+              required
+              className={panelInputClass()}
+              inputMode="numeric"
+              placeholder="1234"
+            />
+          </PanelField>
+        )}
         <PanelField label="Celular · opcional">
           <input
             value={telefono}

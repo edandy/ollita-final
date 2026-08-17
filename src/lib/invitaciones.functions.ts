@@ -145,6 +145,13 @@ export const aceptarInvitacion = createServerFn({ method: "POST" })
       await supabaseAdmin.auth.admin.deleteUser(u.user.id).catch(() => {});
       throw new Error(e2.message);
     }
+    const { writeStaffToPadron } = await import("@/lib/padron.functions");
+    await writeStaffToPadron(supabaseAdmin, {
+      comedor_id: comedorId,
+      nombre: data.nombre.trim(),
+      dni: data.dni,
+      telefono: data.telefono,
+    });
     await supabaseAdmin.from("invitaciones")
       .update({ usado_at: new Date().toISOString(), usado_por: u.user.id, comedor_id: comedorId })
       .eq("id", inv.id);

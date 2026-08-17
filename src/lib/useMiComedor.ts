@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ADMIN_KITCHEN_STORAGE_KEY, SUPERVISOR_KITCHEN_STORAGE_KEY, type AccessLevel } from "@/lib/access";
+import { esSoloLectura, type Cargo } from "@/lib/permisos";
 
 export function useMiComedor() {
   const [vinculo, setVinculo] = useState<any>(null);
@@ -81,7 +82,7 @@ export function useMiComedor() {
       .eq("user_id", ud.user.id)
       .maybeSingle();
     if (v) {
-      setVinculo(v);
+      setVinculo({ ...v, esSoloLectura: esSoloLectura(v.cargo as Cargo) });
       setComedor((v as any).comedor);
       setPlatformRole("member");
     } else if (isAdmin) {
