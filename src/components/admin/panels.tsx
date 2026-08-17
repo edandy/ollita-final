@@ -11,6 +11,8 @@ import {
 import { SUPERVISOR_KITCHEN_STORAGE_KEY, type AccessLevel } from "@/lib/access";
 import { needsSupervisorFields, friendlyCreatePlatformUserError, type PlatformRole } from "@/lib/supervisor";
 import { useSubmitLock } from "@/lib/submit-lock";
+import { notifyError, notifySuccess } from "@/lib/notify";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
 import { EnlaceInvitacion } from "@/components/EnlaceInvitacion";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
@@ -116,8 +118,13 @@ export function KitchensPanel() {
                           label={f.activo ? "Desactivar" : "Reactivar"}
                           onClick={async () => {
                             setMenuCard(null);
-                            await fnActivar({ data: { comedor_id: f.id, activo: !f.activo } });
-                            reloadKitchens();
+                            try {
+                              await fnActivar({ data: { comedor_id: f.id, activo: !f.activo } });
+                              void notifySuccess("Guardamos los cambios.");
+                              reloadKitchens();
+                            } catch (e: any) {
+                              void notifyError(friendlySupabaseError(e?.message ?? "No se pudo guardar"));
+                            }
                           }}
                         />
                         <span className="h-px bg-[#F0F0F0] mx-2 my-1" />
@@ -132,6 +139,7 @@ export function KitchensPanel() {
                               texto: "Se borran su padrón, su caja y su historial de menús. Esta acción no se puede deshacer.",
                               onConfirm: async () => {
                                 await fnEliminar({ data: { comedor_id: f.id } });
+                                void notifySuccess(`Se eliminó ${f.nombre}.`);
                                 await reloadKitchens();
                               },
                             });
@@ -553,10 +561,13 @@ function ModalEditar({ comedor, cerrar, recargar }: { comedor: Fila; cerrar: () 
                   yape_numero: v.yape_numero,
                 },
               });
+              void notifySuccess("Guardamos los cambios.");
               recargar();
               cerrar();
             } catch (e: any) {
-              setErr(e?.message ?? "No se pudo guardar");
+              const msg = friendlySupabaseError(e?.message ?? "No se pudo guardar");
+              setErr(msg);
+              void notifyError(msg);
             }
           });
         }}
@@ -636,8 +647,11 @@ export function PanelNueva({ comedores, recargar, verOllas }: { comedores: Fila[
                   setEnlace(`${window.location.origin}/invitacion/${inv.token}`);
                 }
                 setV({ nombre: "", distrito: "", direccion: "", presidenta: "", dni: "", pin: "", telefono: "" });
+                void notifySuccess(`Se creó ${r.nombre ?? v.nombre}.`);
               } catch (e: any) {
-                setErr(e?.message ?? "No se pudo crear");
+                const msg = friendlySupabaseError(e?.message ?? "No se pudo crear");
+                setErr(msg);
+                void notifyError(msg);
               }
             });
           }}
@@ -722,6 +736,9 @@ export function PanelNueva({ comedores, recargar, verOllas }: { comedores: Fila[
                 try {
                   const inv: any = await fnRegistro({ data: {} });
                   setEnlaceRegistro(`${window.location.origin}/invitacion/${inv.token}`);
+                  void notifySuccess("Se creó el enlace de registro.");
+                } catch (e: any) {
+                  void notifyError(friendlySupabaseError(e?.message ?? "No se pudo generar"));
                 } finally {
                   setGenerandoReg(false);
                 }
@@ -758,8 +775,13 @@ export function PanelNueva({ comedores, recargar, verOllas }: { comedores: Fila[
             type="button"
             disabled={!existente}
             onClick={async () => {
-              const inv: any = await fnInv({ data: { comedor_id: existente, cargo: cargo2 as any } });
-              setEnlace2(`${window.location.origin}/invitacion/${inv.token}`);
+              try {
+                const inv: any = await fnInv({ data: { comedor_id: existente, cargo: cargo2 as any } });
+                setEnlace2(`${window.location.origin}/invitacion/${inv.token}`);
+                void notifySuccess("Se creó el enlace de invitación.");
+              } catch (e: any) {
+                void notifyError(friendlySupabaseError(e?.message ?? "No se pudo generar"));
+              }
             }}
             className="min-h-14 rounded-full border border-[#0F7BA8] bg-white text-[#0F7BA8] text-[17px] font-semibold hover:bg-terracota-suave disabled:opacity-50"
           >
@@ -867,10 +889,13 @@ export function PanelPlatformUsers({
             void runCrear(async () => {
               try {
                 await fnCrear({ data: v });
+                void notifySuccess("Se creó el usuario.");
                 closeCreate();
                 cargar();
               } catch (e: any) {
-                setErr(friendlyCreatePlatformUserError(e?.message ?? ""));
+                const msg = friendlyCreatePlatformUserError(e?.message ?? "");
+                setErr(msg);
+                void notifyError(msg);
               }
             });
           }}
@@ -980,6 +1005,7 @@ export function PanelPlatformUsers({
                         : "Perderá el acceso de supervisor. No es integrante de ninguna olla.",
                       onConfirm: async () => {
                         await fnEliminar({ data: { userId: u.userId, deleteAccount: true } });
+                        void notifySuccess(`Se eliminó a ${u.name}.`);
                         cargar();
                       },
                     });
@@ -1020,10 +1046,13 @@ export function PanelPlatformUsers({
                       comedorIds: editando.comedorIds,
                     },
                   });
+                  void notifySuccess("Guardamos los cambios.");
                   setEditando(null);
                   cargar();
                 } catch (e: any) {
-                  setErr(friendlyCreatePlatformUserError(e?.message ?? ""));
+                  const msg = friendlyCreatePlatformUserError(e?.message ?? "");
+                  setErr(msg);
+                  void notifyError(msg);
                 }
               });
             }}
@@ -1150,10 +1179,13 @@ export function PanelUsuarios({
             void run(async () => {
               try {
                 await fnCrear({ data: v });
+                void notifySuccess("Se creó el gestor.");
                 closeCreate();
                 cargar();
               } catch (e: any) {
-                setErr(e?.message ?? "No se pudo crear");
+                const msg = friendlySupabaseError(e?.message ?? "No se pudo crear");
+                setErr(msg);
+                void notifyError(msg);
               }
             });
           }}
@@ -1213,8 +1245,13 @@ export function PanelUsuarios({
               <select
                 value={u.cargo}
                 onChange={async (e) => {
-                  await fnCargo({ data: { vinculo_id: u.id, cargo: e.target.value } });
-                  cargar();
+                  try {
+                    await fnCargo({ data: { vinculo_id: u.id, cargo: e.target.value } });
+                    void notifySuccess("Guardamos los cambios.");
+                    cargar();
+                  } catch (err: any) {
+                    void notifyError(friendlySupabaseError(err?.message ?? "No se pudo guardar"));
+                  }
                 }}
                 className="text-[15px] font-bold px-3.5 py-2 rounded-full border-0 bg-terracota-suave text-[#0A5F82] outline-none capitalize"
               >
@@ -1228,6 +1265,7 @@ export function PanelUsuarios({
                     texto: "Perderá el acceso al panel de su olla. La olla no se modifica.",
                     onConfirm: async () => {
                       await fnEliminar({ data: { vinculo_id: u.id, borrar_cuenta: true } });
+                      void notifySuccess(`Se eliminó a ${u.nombre}.`);
                       cargar();
                     },
                   });
@@ -1271,8 +1309,11 @@ function ModalInvitar({ comedor, cerrar }: { comedor: { id: string; nombre: stri
             try {
               const inv: any = await fn({ data: { comedor_id: comedor.id, cargo: cargo as any } });
               setEnlace(`${window.location.origin}/invitacion/${inv.token}`);
+              void notifySuccess("Se creó el enlace de invitación.");
             } catch (e: any) {
-              setErr(e?.message ?? "No se pudo generar");
+              const msg = friendlySupabaseError(e?.message ?? "No se pudo generar");
+              setErr(msg);
+              void notifyError(msg);
             } finally {
               setBusy(false);
             }

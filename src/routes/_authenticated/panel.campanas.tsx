@@ -6,6 +6,7 @@ import { useSubmitLock } from "@/lib/submit-lock";
 import { Plus, Heart, Camera, Trash2 } from "lucide-react";
 import { subirFoto } from "@/lib/subirFoto";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 export const Route = createFileRoute("/_authenticated/panel/campanas")({
   head: () => ({ meta: [{ title: "Campañas — La Ollita" }] }),
@@ -26,7 +27,9 @@ function CampanasPage() {
   useEffect(() => { cargar(); }, [comedor?.id]);
 
   const toggleActiva = async (c: any) => {
-    await supabase.from("campanas").update({ activa: !c.activa }).eq("id", c.id);
+    const { error } = await supabase.from("campanas").update({ activa: !c.activa }).eq("id", c.id);
+    if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+    void notifySuccess("Guardamos los cambios.");
     cargar();
   };
 
@@ -87,7 +90,7 @@ function FormCamp({ comedorId, cerrar }: any) {
     const file = e.target.files?.[0]; if (!file) return;
     setSubiendo(true);
     try { const url = await subirFoto(file, `campanas/${comedorId}`); setFotoUrl(url); }
-    catch (err: any) { alert(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
+    catch (err: any) { void notifyError(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
     finally { setSubiendo(false); }
   };
   const guardar = (e: React.FormEvent) => {
@@ -101,7 +104,8 @@ function FormCamp({ comedorId, cerrar }: any) {
         activa: true,
         foto_url: fotoUrl,
       } as any);
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Se creó la campaña.");
       cerrar();
     });
   };
@@ -152,6 +156,7 @@ function FormAporte({ campana, cerrar }: any) {
     void run(async () => {
       const nuevo = Number(campana.avance_monto) + Number(monto);
       await supabase.from("campanas").update({ avance_monto: nuevo }).eq("id", campana.id);
+      void notifySuccess("Se registró el aporte.");
       cerrar();
     });
   };

@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -127,6 +127,15 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function ClientToaster() {
+  const [Toaster, setToaster] = useState<null | typeof import("@/components/ui/sonner").Toaster>(null);
+  useEffect(() => {
+    void import("@/components/ui/sonner").then((mod) => setToaster(() => mod.Toaster));
+  }, []);
+  if (!Toaster) return null;
+  return <Toaster position="top-center" richColors />;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -134,6 +143,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <ClientToaster />
     </QueryClientProvider>
   );
 }

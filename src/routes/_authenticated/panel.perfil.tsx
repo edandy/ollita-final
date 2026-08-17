@@ -11,6 +11,7 @@ import {
 } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 export const Route = createFileRoute("/_authenticated/panel/perfil")({
   head: () => ({ meta: [{ title: "Perfil del comedor — La Ollita" }] }),
@@ -45,7 +46,8 @@ function PerfilPage() {
         lat: Number(f.lat), lng: Number(f.lng),
         foto_url: f.foto_url ?? null,
       }).eq("id", f.id);
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Guardamos los cambios.");
       setOk(true); setTimeout(() => setOk(false), 1800);
       recargar();
     });
@@ -57,19 +59,19 @@ function PerfilPage() {
     const file = e.target.files?.[0]; if (!file) return;
     setSubiendo(true);
     try { const url = await subirFoto(file, `comedor/${f.id}`); setF({ ...f, foto_url: url }); }
-    catch (err: any) { alert(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
+    catch (err: any) { void notifyError(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
     finally { setSubiendo(false); }
   };
 
   const ubicarme = () => {
-    if (!navigator.geolocation) { alert("Tu navegador no permite obtener la ubicación."); return; }
+    if (!navigator.geolocation) { void notifyError("Tu navegador no permite obtener la ubicación."); return; }
     setUbicando(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setF((prev: any) => ({ ...prev, lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) }));
         setUbicando(false);
       },
-      (err) => { setUbicando(false); alert(friendlySupabaseError(err.message)); },
+      (err) => { setUbicando(false); void notifyError(friendlySupabaseError(err.message)); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };

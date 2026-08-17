@@ -11,6 +11,7 @@ import {
 } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 export const Route = createFileRoute("/_authenticated/panel/menu")({
   head: () => ({ meta: [{ title: "Menús — La Ollita" }] }),
@@ -73,14 +74,14 @@ function MenuPage() {
     const file = e.target.files?.[0]; if (!file) return;
     setSubiendo(true);
     try { const url = await subirFoto(file, `comedor/${comedor.id}/menus`); setFoto(url); }
-    catch (err: any) { alert(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
+    catch (err: any) { void notifyError(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
     finally { setSubiendo(false); }
   };
 
   const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     const r = Math.max(1, Number(raciones) || 0);
-    if (!r) { alert("Indica cuántas raciones tendrá el menú."); return; }
+    if (!r) { void notifyError("Indica cuántas raciones tendrá el menú."); return; }
     void run(async () => {
       const { error } = await supabase.from("menus").upsert({
         comedor_id: comedor.id,
@@ -92,14 +93,15 @@ function MenuPage() {
         foto_url: foto,
         raciones_disponibles: r,
       } as any, { onConflict: "comedor_id,fecha" });
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Se guardó el menú.");
       setOk(true); setTimeout(() => setOk(false), 1500);
       await cargar();
     });
   };
 
   const repetirSemana = () => {
-    if (!plato.trim()) { alert("Primero escribe el plato de este día."); return; }
+    if (!plato.trim()) { void notifyError("Primero escribe el plato de este día."); return; }
     if (!confirm("¿Copiar este menú a los próximos 6 días?")) return;
     void runRepetir(async () => {
       const filas = Array.from({ length: 6 }, (_, i) => {
@@ -117,7 +119,8 @@ function MenuPage() {
         };
       });
       const { error } = await supabase.from("menus").upsert(filas as any, { onConflict: "comedor_id,fecha" });
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Se copió el menú a los próximos 6 días.");
       setOk(true); setTimeout(() => setOk(false), 1500);
       await cargar();
     });
@@ -125,7 +128,9 @@ function MenuPage() {
 
   const borrar = async () => {
     if (!menu || !confirm("¿Borrar este menú?")) return;
-    await supabase.from("menus").delete().eq("id", menu.id);
+    const { error } = await supabase.from("menus").delete().eq("id", menu.id);
+    if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+    void notifySuccess("Se eliminó el menú.");
     cargar();
   };
 

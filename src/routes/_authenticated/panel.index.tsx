@@ -10,6 +10,7 @@ import { useSubmitLock } from "@/lib/submit-lock";
 import { subirFoto } from "@/lib/subirFoto";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { PanelWriteGate } from "@/components/panel-ui";
 
 export const Route = createFileRoute("/_authenticated/panel/")({
@@ -108,7 +109,7 @@ function Hoy() {
     e.preventDefault();
     if (readOnly) return;
     const r = Math.max(1, Number(raciones) || 0);
-    if (!r) { alert("Indica cuántas raciones vas a cocinar hoy."); return; }
+    if (!r) { void notifyError("Indica cuántas raciones vas a cocinar hoy."); return; }
     void runPublicar(async () => {
       const { error } = await supabase.from("menus").upsert({
         comedor_id: comedor.id,
@@ -120,7 +121,8 @@ function Hoy() {
         raciones_disponibles: r,
         foto_url: foto,
       }, { onConflict: "comedor_id,fecha" });
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Se publicó el menú de hoy.");
       setPlato(""); setDescripcion(""); setFoto(null);
       setAbierto(3);
       await cargar();
@@ -132,14 +134,16 @@ function Hoy() {
     const file = e.target.files?.[0]; if (!file || !comedor) return;
     setSubiendoFoto(true);
     try { const url = await subirFoto(file, `comedor/${comedor.id}/menus`); setFoto(url); }
-    catch (err: any) { alert(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
+    catch (err: any) { void notifyError(friendlySupabaseError(err?.message ?? "No pudimos subir la foto")); }
     finally { setSubiendoFoto(false); }
   };
 
   const marcarRecogida = async (rId: string) => {
     if (readOnly) return;
     const r = reservas.find((x) => x.id === rId);
-    await supabase.from("reservas").update({ estado: "recogida" }).eq("id", rId);
+    const { error } = await supabase.from("reservas").update({ estado: "recogida" }).eq("id", rId);
+    if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+    void notifySuccess(r?.nombre_comensal ? `Entregamos la ración de ${r.nombre_comensal}.` : "Marcamos la reserva como entregada.");
     if (r && r.estado !== "recogida" && comedor) {
       const { data: caja } = await supabase.from("caja_dias")
         .select("id, cerrado").eq("comedor_id", comedor.id).eq("fecha", hoyISO()).maybeSingle();
@@ -159,7 +163,7 @@ function Hoy() {
   const entregarSinReserva = () => {
     if (readOnly || !menu || !comedor) return;
     const cant = Math.max(1, Number(entregaCant) || 1);
-    if (menu.raciones_disponibles < cant) { alert("No hay raciones disponibles suficientes."); return; }
+    if (menu.raciones_disponibles < cant) { void notifyError("No hay raciones disponibles suficientes."); return; }
     void runEntregar(async () => {
       const codigo = "LIBRE-" + Math.random().toString(36).slice(2, 6).toUpperCase();
       const { error } = await supabase.from("reservas").insert({
@@ -173,7 +177,8 @@ function Hoy() {
         dni: benefSel?.dni ?? null,
         beneficiario_id: benefSel?.id ?? null,
       } as any);
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Se registró la entrega.");
       const { data: caja } = await supabase.from("caja_dias")
         .select("id, cerrado").eq("comedor_id", comedor.id).eq("fecha", hoyISO()).maybeSingle();
       if (caja && !(caja as any).cerrado) {
@@ -598,8 +603,9 @@ function CompraModal({ insumos: inicial, comedor, onListaCambiada, cerrar }: {
       }
       if (movimientos.length === 0) { cerrar(false); return; }
       const { error } = await supabase.from("movimientos_insumo").insert(movimientos);
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
       await Promise.all(updates);
+      void notifySuccess("Se registró la compra.");
       if (total > 0) {
         const { data: caja } = await supabase.from("caja_dias")
           .select("id, cerrado").eq("comedor_id", comedor.id).eq("fecha", hoyISO()).maybeSingle();
@@ -693,7 +699,8 @@ function FormInsumoHoy({
         precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
         origen,
       }).select("id,nombre,unidad,stock_actual,consumo_diario_promedio,precio_referencial").single();
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Se guardó el insumo.");
       alCrear(data);
     });
   };
@@ -769,8 +776,9 @@ function ConsumoModal({ insumos, cerrar }: { insumos: any[]; cerrar: (guardo: bo
       }
       if (movimientos.length === 0) { cerrar(false); return; }
       const { error } = await supabase.from("movimientos_insumo").insert(movimientos);
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
       await Promise.all(updates);
+      void notifySuccess("Se registró el consumo del día.");
       cerrar(true);
     });
   };

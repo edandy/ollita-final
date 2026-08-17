@@ -8,6 +8,7 @@ import { Plus, Minus, Printer, Lock, Unlock, Camera, ImagePlus, X } from "lucide
 import { PanelShell, PanelTitle, PanelWriteGate } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 export const Route = createFileRoute("/_authenticated/panel/caja")({
   head: () => ({ meta: [{ title: "Caja — La Ollita" }] }),
@@ -105,9 +106,10 @@ function CajaPage() {
         .from("caja_dias")
         .insert({ comedor_id: comedor.id, fecha: hoy, capital_inicial: Number(capitalInicial) });
       if (error) {
-        alert(friendlySupabaseError(error.message));
+        void notifyError(friendlySupabaseError(error.message));
         return;
       }
+      void notifySuccess("Se abrió la caja del día.");
       await cargar();
     });
   };
@@ -121,6 +123,7 @@ function CajaPage() {
       .from("caja_dias")
       .update({ total_ingresos: ing, total_egresos: egr, ganancia, cerrado: true })
       .eq("id", caja.id);
+    void notifySuccess("Se cerró la caja del día.");
     cargar();
   };
 
@@ -341,8 +344,11 @@ function CajaCerrada({ caja, onReabrir }: { caja: Caja; onReabrir: () => void })
       if (p >= 1) {
         t.current = null;
         const { error } = await supabase.from("caja_dias").update({ cerrado: false }).eq("id", caja.id);
-        if (error) alert(friendlySupabaseError(error.message));
-        else onReabrir();
+        if (error) void notifyError(friendlySupabaseError(error.message));
+        else {
+          void notifySuccess("Se reabrió la caja.");
+          onReabrir();
+        }
         return;
       }
       t.current = requestAnimationFrame(tick);
@@ -441,7 +447,7 @@ function FormTrx({
     try {
       setComprobante(await subirFoto(file, `comedor/${comedorId}/comprobantes`));
     } catch (err: any) {
-      alert(friendlySupabaseError(err?.message ?? "No se pudo subir la foto"));
+      void notifyError(friendlySupabaseError(err?.message ?? "No se pudo subir la foto"));
     } finally {
       setSubiendo(false);
     }
@@ -459,9 +465,10 @@ function FormTrx({
         comprobante_url: comprobante,
       });
       if (error) {
-        alert(friendlySupabaseError(error.message));
+        void notifyError(friendlySupabaseError(error.message));
         return;
       }
+      void notifySuccess("Se guardó el movimiento.");
       cerrar();
     });
   };

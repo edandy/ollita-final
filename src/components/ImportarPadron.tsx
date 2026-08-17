@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { importarPadron } from "@/lib/padron.functions";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { Upload } from "lucide-react";
 
 type Fila = {
@@ -95,9 +96,14 @@ export function ImportarPadron({ comedorId, alTerminar }: { comedorId: string; a
             (result.accountsCreated ? ` y se crearon ${result.accountsCreated} cuentas.` : "."),
         );
         setFilas([]);
+        void notifySuccess(
+          `Se importaron ${result.imported} personas al padrón` +
+            (result.accountsCreated ? ` y se crearon ${result.accountsCreated} cuentas.` : "."),
+        );
         alTerminar();
       } catch (e: any) {
         setErrores((prev) => [...prev, e?.message ?? "No se pudo importar el padrón"]);
+        void notifyError(e?.message ?? "No se pudo importar el padrón");
       }
     });
   };

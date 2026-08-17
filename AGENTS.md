@@ -10,6 +10,10 @@
 - Form validation and error messages must be user-friendly Spanish. Never show raw Postgres, Supabase Auth, constraint, RLS, or enum text (`invalid input value for enum…`, `duplicate key…`, `row-level security policy…`, `already been registered`). Translate those in a helper (`friendlySupabaseError` in the panel, `friendlyCreateStaffError` / `friendlyCreatePlatformUserError` in admin) and cover it with tests.
 - Supervisor with access `view` in `/panel`: hide all create/edit/delete actions in the UI (`PanelCta`, `PanelWriteGate`, `useCanWrite`). Do not rely on RLS errors to block writes the user can still attempt from the UI.
 
+## Git remotes
+
+- When asked to push, upload, or “subir” changes, push to **both** remotes: `origin` (`gdavila-nos/la-ollita`) and `vercel` (`edandy/ollita-final`). Do not push to only one unless the user says so.
+
 ## Platform roles
 
 - `admin`: full access to `/admin` (every kitchen and every section).

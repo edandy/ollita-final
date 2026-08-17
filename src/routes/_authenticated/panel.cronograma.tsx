@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { useCanWrite } from "@/lib/kitchen-access-context";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   PanelShell, PanelBack, PanelTitle, PanelField, PanelCta, PanelOverlay, panelInputClass, PanelWriteGate,
@@ -89,7 +90,7 @@ function CronogramaPage() {
       .gte("fecha", fmt(prevLunes))
       .lte("fecha", fmt(prevFin));
     if (!data?.length) {
-      alert("No hay semana anterior para copiar.");
+      void notifyError("No hay semana anterior para copiar.");
       return;
     }
     const inserts = data.map((d: any) => {
@@ -104,6 +105,7 @@ function CronogramaPage() {
       };
     });
     await supabase.from("cronograma").upsert(inserts, { onConflict: "comedor_id,fecha" });
+    void notifySuccess("Se copió la semana anterior.");
     cargar();
   };
 
@@ -250,6 +252,7 @@ function FormCrono({
         },
         { onConflict: "comedor_id,fecha" },
       );
+      void notifySuccess("Se guardó el turno.");
       cerrar();
     });
   };

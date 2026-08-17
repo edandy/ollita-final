@@ -17,6 +17,8 @@ import {
   type KitchenRow,
 } from "@/lib/admin-layout-context";
 import { kitchenTotals, ModalConfirmacion } from "@/components/admin/panels";
+import { notifyError } from "@/lib/notify";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 import {
   Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, LogOut,
@@ -260,7 +262,7 @@ function AdminLayout() {
                 await confirmacion.onConfirm();
                 setConfirmacion(null);
               } catch (e: any) {
-                alert(e?.message ?? "Error");
+                void notifyError(friendlySupabaseError(e?.message ?? "No pudimos completar la acción."));
               }
             }}
           />

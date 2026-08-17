@@ -10,6 +10,7 @@ import {
 } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 export const Route = createFileRoute("/_authenticated/panel/insumos")({
   head: () => ({ meta: [{ title: "Almacén — La Ollita" }] }),
@@ -314,7 +315,8 @@ function FormInsumo({ comedorId, cerrar }: { comedorId: string; cerrar: () => vo
         precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
         origen,
       });
-      if (error) { alert(friendlySupabaseError(error.message)); return; }
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Se guardó el insumo.");
       cerrar();
     });
   };
@@ -384,7 +386,8 @@ function FormMovimiento({ insumo, tipo, cantidad: cantIni, cerrar }: { insumo: I
         precio_unitario: tipo === "ingreso" && origenMov === "compra" && precio ? Number(precio) : null,
       });
       const { error: e2 } = await supabase.from("insumos").update({ stock_actual: Math.max(0, nuevoStock) }).eq("id", insumo.id);
-      if (e1 || e2) { alert(friendlySupabaseError((e1 ?? e2)!.message)); return; }
+      if (e1 || e2) { void notifyError(friendlySupabaseError((e1 ?? e2)!.message)); return; }
+      void notifySuccess(tipo === "ingreso" ? "Se registró la entrada." : "Se registró la salida.");
       cerrar();
     });
   };

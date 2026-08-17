@@ -7,6 +7,8 @@ import { Share2, Copy, Plus, Trash2, Search } from "lucide-react";
 import { PanelShell, PanelTitle, PanelWriteGate } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { sortReservasForPanel } from "@/lib/reservas";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 export const Route = createFileRoute("/_authenticated/panel/reservas")({
   head: () => ({ meta: [{ title: "Reservas — La Ollita" }] }),
@@ -26,8 +28,9 @@ function ReservasPage() {
   const canWrite = useCanWrite();
   const [reservas, setReservas] = useState<any[]>([]);
   const [filtro, setFiltro] = useState<"todas" | "pendientes" | "entregadas">("todas");
-  const [verificar, setVerificar] = useState<any>(null);
   const [menuHoy, setMenuHoy] = useState<any>(null);
+  const { pending: entregando, run: runEntregar } = useSubmitLock();
+  const [entregandoId, setEntregandoId] = useState<string | null>(null);
   const [mostrarManual, setMostrarManual] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
@@ -49,7 +52,7 @@ function ReservasPage() {
         .eq("publicado", true)
         .maybeSingle(),
     ]);
-    setReservas((data ?? []).filter((r: any) => r.menu?.fecha === hoy));
+    setReservas(sortReservasForPanel((data ?? []).filter((r: any) => r.menu?.fecha === hoy)));
     setMenuHoy(m);
   };
   useEffect(() => {
@@ -57,11 +60,12 @@ function ReservasPage() {
   }, [comedor?.id]);
 
   const setEstado = async (r: any, estado: "recogida" | "no_recogida") => {
-    await supabase.from("reservas").update({ estado }).eq("id", r.id);
+    const { error } = await supabase.from("reservas").update({ estado }).eq("id", r.id);
+    if (error) throw new Error(friendlySupabaseError(error.message));
     if (estado === "recogida" && r.estado !== "recogida") {
       await registrarIngreso(r);
     }
-    cargar();
+    await cargar();
   };
 
   const eliminarReserva = async (r: any) => {
@@ -88,9 +92,10 @@ function ReservasPage() {
     }
     const { error } = await supabase.from("reservas").delete().eq("id", r.id);
     if (error) {
-      alert(friendlySupabaseError(error.message));
+      void notifyError(friendlySupabaseError(error.message));
       return;
     }
+    void notifySuccess("Se eliminó la reserva.");
     cargar();
   };
 
@@ -114,11 +119,28 @@ function ReservasPage() {
     });
   };
 
-  const filtradas = reservas.filter((r) => {
-    if (filtro === "todas") return true;
-    if (filtro === "pendientes") return r.estado === "pendiente";
-    return r.estado === "recogida";
-  });
+  const filtradas = sortReservasForPanel(
+    reservas.filter((r) => {
+      if (filtro === "todas") return true;
+      if (filtro === "pendientes") return r.estado === "pendiente";
+      return r.estado === "recogida";
+    }),
+  );
+
+  const entregar = (r: any) => {
+    void runEntregar(async () => {
+      setEntregandoId(r.id);
+      try {
+        await setEstado(r, "recogida");
+        const quien = r.nombre_comensal?.trim();
+        void notifySuccess(quien ? `Entregamos la ración de ${quien}.` : `Marcamos la reserva ${r.codigo} como entregada.`);
+      } catch (e: any) {
+        void notifyError(friendlySupabaseError(e?.message ?? "No pudimos marcar la entrega"));
+      } finally {
+        setEntregandoId(null);
+      }
+    });
+  };
 
   if (loading || !comedor) return null;
 
@@ -264,10 +286,11 @@ function ReservasPage() {
                   <PanelWriteGate>
                   <button
                     type="button"
-                    onClick={() => setVerificar(r)}
-                    className="min-h-[52px] px-[22px] rounded-full bg-[#0F7BA8] text-white text-[16px] font-semibold whitespace-nowrap hover:bg-[#0A5F82]"
+                    onClick={() => entregar(r)}
+                    disabled={entregando}
+                    className="min-h-[52px] px-[22px] rounded-full bg-[#0F7BA8] text-white text-[16px] font-semibold whitespace-nowrap hover:bg-[#0A5F82] disabled:opacity-60"
                   >
-                    Entregar
+                    {entregando && entregandoId === r.id ? "Entregando…" : "Entregar"}
                   </button>
                   </PanelWriteGate>
                 )}
@@ -289,16 +312,6 @@ function ReservasPage() {
         </div>
       </div>
 
-      {verificar && canWrite && (
-        <VerificarDni
-          reserva={verificar}
-          cerrar={() => setVerificar(null)}
-          confirmar={async () => {
-            await setEstado(verificar, "recogida");
-            setVerificar(null);
-          }}
-        />
-      )}
       {mostrarManual && menuHoy && canWrite && (
         <RegistrarOrdenManual
           comedor={comedor}
@@ -395,7 +408,12 @@ function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
         cantidad,
         beneficiario_id: benef?.id ?? null,
       });
-      if (err) return setError(err.message);
+      if (err) {
+        setError(friendlySupabaseError(err.message));
+        void notifyError(friendlySupabaseError(err.message));
+        return;
+      }
+      void notifySuccess("Se guardó la orden.");
 
       const total = (cantidad * Number(menu.precio)).toFixed(2);
       const msg = `¡Hola ${nombre.trim()}! Te reservé ${cantidad} ración(es) de *${menu.nombre_plato}* en ${comedor.nombre}.\nCódigo: *${codigo}*\nTotal: S/ ${total}\nRecoge antes de la 1:00 pm.`;
@@ -555,76 +573,6 @@ function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  );
-}
-
-function VerificarDni({ reserva, cerrar, confirmar }: any) {
-  const [dni, setDni] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const { pending, run } = useSubmitLock();
-  const onConfirmar = () => {
-    if (reserva.dni && dni !== reserva.dni) {
-      setError("El DNI no coincide con la reserva");
-      return;
-    }
-    void run(async () => { await confirmar(); });
-  };
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-[rgba(7,34,73,0.55)] flex items-end sm:items-center justify-center p-6"
-      onClick={cerrar}
-    >
-      <div
-        className="w-full max-w-[520px] bg-white rounded-[22px] p-[26px] flex flex-col gap-[18px] shadow-[0_12px_40px_rgba(7,34,73,0.30)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex flex-col gap-1">
-          <h3 className="text-[24px] font-bold tracking-[-0.02em] text-[#072249]">Entregar ración</h3>
-          <p className="text-[17px] text-[#475569]">
-            Confirma la entrega a <strong className="text-[#072249]">{reserva.nombre_comensal}</strong>.
-          </p>
-        </div>
-        {reserva.dni ? (
-          <label className="flex flex-col gap-2">
-            <span className="text-[15px] font-semibold text-[#072249]">DNI del comensal</span>
-            <input
-              value={dni}
-              onChange={(e) => {
-                setDni(e.target.value.replace(/\D/g, "").slice(0, 8));
-                setError(null);
-              }}
-              className="h-14 px-4 border border-[#E0E0E0] rounded-xl text-[17px] tracking-widest outline-none focus:border-[#0F7BA8]"
-              placeholder="12345678"
-              inputMode="numeric"
-              autoFocus
-            />
-            {error && <p className="text-[15px] text-[#C5352B]">{error}</p>}
-          </label>
-        ) : (
-          <p className="text-[16px] text-[#8A5A00] bg-[#FDF0D4] rounded-xl px-3.5 py-3">
-            Esta reserva no registró DNI. Verifica al comensal con su código{" "}
-            <strong>{reserva.codigo}</strong>.
-          </p>
-        )}
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={cerrar}
-            className="flex-1 min-h-14 rounded-full bg-white border border-[#E0E0E0] text-[#072249] text-[17px] font-semibold"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={onConfirmar}
-            disabled={pending}
-            className="flex-[1.4] min-h-14 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-60"
-          >
-            {pending ? "Guardando…" : "Confirmar entrega"}
-          </button>
-        </div>
       </div>
     </div>
   );

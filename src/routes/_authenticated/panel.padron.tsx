@@ -10,7 +10,7 @@ import {
   PanelShell, PanelBack, PanelTitle, PanelCta, PanelField, PanelOverlay, panelInputClass, PanelWriteGate,
 } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
-import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { crearBeneficiario, sincronizarEquipoEnPadron } from "@/lib/padron.functions";
 import {
   canRemoveBeneficiary,
@@ -228,14 +228,15 @@ function PadronPage() {
       .eq("dni", b.dni)
       .maybeSingle();
     if (!canRemoveBeneficiary(member?.cargo)) {
-      alert(friendlyCreateBeneficiaryError("staff_in_padron"));
+      void notifyError(friendlyCreateBeneficiaryError("staff_in_padron"));
       return;
     }
     const { error } = await supabase.from("beneficiarios").delete().eq("id", b.id);
     if (error) {
-      alert(friendlyCreateBeneficiaryError(error.message));
+      void notifyError(friendlyCreateBeneficiaryError(error.message));
       return;
     }
+    void notifySuccess(`Se eliminó a ${b.nombre_completo} del padrón.`);
     cargar();
   };
 
@@ -505,8 +506,10 @@ function FormBenef({
           }).eq("id", data.id);
           if (error) {
             setErr(friendlyCreateBeneficiaryError(error.message));
+            void notifyError(friendlyCreateBeneficiaryError(error.message));
             return;
           }
+          void notifySuccess("Guardamos los cambios.");
           cerrar();
         });
         return;
@@ -538,10 +541,12 @@ function FormBenef({
               comedor_id: data.comedor_id,
             },
           });
-          if (result.note) alert(result.note);
+          if (result.note) void notifySuccess(result.note);
+          else void notifySuccess("Se guardó a esta persona en el padrón.");
           cerrar();
         } catch (e: any) {
           setErr(friendlyCreateBeneficiaryError(e?.message ?? ""));
+          void notifyError(friendlyCreateBeneficiaryError(e?.message ?? ""));
         }
       });
     } catch (e: any) {

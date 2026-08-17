@@ -13,6 +13,7 @@ import {
   type AssignableStaffCargo,
 } from "@/lib/personal";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { UserPlus, Trash2, Search } from "lucide-react";
 import {
   PanelShell, PanelBack, PanelTitle, PanelCta, PanelField,
@@ -96,15 +97,16 @@ function PersonalPage() {
     }
     try {
       await fnEliminar({ data: { vinculo_id: v.id, comedor_id: comedor.id } });
+      void notifySuccess(`Se quitó el cargo de ${v.nombre}.`);
       cargar();
     } catch (e: any) {
-      alert(friendlySupabaseError(e?.message ?? "Error"));
+      void notifyError(friendlySupabaseError(e?.message ?? "Error"));
     }
   };
 
   const cambiar = async (v: V, cargo: Cargo) => {
     if (cargo === "presidenta") {
-      alert("Para transferir la presidencia, contacta al soporte.");
+      void notifyError("Para transferir la presidencia, contacta al soporte.");
       return;
     }
     if (cargo === "socia") {
@@ -113,9 +115,10 @@ function PersonalPage() {
     }
     try {
       await fnCargo({ data: { vinculo_id: v.id, comedor_id: comedor.id, cargo: cargo as AssignableStaffCargo } });
+      void notifySuccess("Guardamos los cambios.");
       cargar();
     } catch (e: any) {
-      alert(friendlySupabaseError(e?.message ?? "Error"));
+      void notifyError(friendlySupabaseError(e?.message ?? "Error"));
     }
   };
 
@@ -269,9 +272,11 @@ function FormAsignar({
             comedor_id: data.comedor_id,
           },
         });
+        void notifySuccess("Se asignó el cargo.");
         cerrar();
       } catch (e: any) {
         setErr(friendlyAssignStaffError(e?.message ?? ""));
+        void notifyError(friendlyAssignStaffError(e?.message ?? ""));
       }
     });
   };
