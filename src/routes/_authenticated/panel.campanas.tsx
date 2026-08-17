@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { Plus, Heart, Camera, Trash2 } from "lucide-react";
 import { subirFoto } from "@/lib/subirFoto";
 
@@ -80,6 +81,7 @@ function FormCamp({ comedorId, cerrar }: any) {
   const [metaDesc, setMetaDesc] = useState("");
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
+  const { pending, run } = useSubmitLock();
   const onFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     setSubiendo(true);
@@ -87,18 +89,20 @@ function FormCamp({ comedorId, cerrar }: any) {
     catch (err: any) { alert("No pudimos subir la foto: " + (err?.message ?? err)); }
     finally { setSubiendo(false); }
   };
-  const guardar = async (e: React.FormEvent) => {
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from("campanas").insert({
-      comedor_id: comedorId, titulo: titulo.trim(), descripcion: descripcion.trim() || null,
-      tipo_meta: tipo,
-      meta_monto: tipo === "dinero" ? Number(meta) : null,
-      meta_descripcion: tipo === "especie" ? metaDesc : null,
-      activa: true,
-      foto_url: fotoUrl,
-    } as any);
-    if (error) { alert(error.message); return; }
-    cerrar();
+    void run(async () => {
+      const { error } = await supabase.from("campanas").insert({
+        comedor_id: comedorId, titulo: titulo.trim(), descripcion: descripcion.trim() || null,
+        tipo_meta: tipo,
+        meta_monto: tipo === "dinero" ? Number(meta) : null,
+        meta_descripcion: tipo === "especie" ? metaDesc : null,
+        activa: true,
+        foto_url: fotoUrl,
+      } as any);
+      if (error) { alert(error.message); return; }
+      cerrar();
+    });
   };
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4" onClick={cerrar}>
@@ -130,7 +134,9 @@ function FormCamp({ comedorId, cerrar }: any) {
           ) : (
             <label className="block"><span className="text-sm font-semibold">Necesitamos</span><input value={metaDesc} onChange={(e) => setMetaDesc(e.target.value)} required className="inp mt-1" placeholder="Ej. 20 kg de arroz" /></label>
           )}
-          <button className="btn-grande w-full bg-terracota text-white">Crear</button>
+          <button type="submit" disabled={pending || subiendo} className="btn-grande w-full bg-terracota text-white disabled:opacity-60">
+            {pending ? "Creando…" : "Crear"}
+          </button>
         </form>
       </div>
     </div>
@@ -139,11 +145,14 @@ function FormCamp({ comedorId, cerrar }: any) {
 
 function FormAporte({ campana, cerrar }: any) {
   const [monto, setMonto] = useState("");
-  const guardar = async (e: React.FormEvent) => {
+  const { pending, run } = useSubmitLock();
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
-    const nuevo = Number(campana.avance_monto) + Number(monto);
-    await supabase.from("campanas").update({ avance_monto: nuevo }).eq("id", campana.id);
-    cerrar();
+    void run(async () => {
+      const nuevo = Number(campana.avance_monto) + Number(monto);
+      await supabase.from("campanas").update({ avance_monto: nuevo }).eq("id", campana.id);
+      cerrar();
+    });
   };
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4" onClick={cerrar}>
@@ -151,7 +160,9 @@ function FormAporte({ campana, cerrar }: any) {
         <h3 className="text-lg text-bosque">Registrar aporte</h3>
         <form onSubmit={guardar} className="space-y-3">
           <label className="block"><span className="text-sm font-semibold">Monto recibido (S/)</span><input type="number" step="1" value={monto} onChange={(e) => setMonto(e.target.value)} required className="inp mt-1" autoFocus /></label>
-          <button className="btn-grande w-full bg-terracota text-white">Sumar</button>
+          <button type="submit" disabled={pending} className="btn-grande w-full bg-terracota text-white disabled:opacity-60">
+            {pending ? "Guardando…" : "Sumar"}
+          </button>
         </form>
       </div>
     </div>

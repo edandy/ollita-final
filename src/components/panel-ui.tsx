@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { useKitchenAccess } from "@/lib/kitchen-access-context";
 
 export function PanelShell({ children }: { children: ReactNode }) {
   return (
@@ -47,6 +48,8 @@ export function PanelCta({
   type = "button",
   variant = "primary",
   disabled,
+  loading,
+  loadingText = "Guardando…",
   className = "",
 }: {
   children: ReactNode;
@@ -54,8 +57,12 @@ export function PanelCta({
   type?: "button" | "submit";
   variant?: "primary" | "secondary" | "navy" | "outline" | "danger" | "ghost";
   disabled?: boolean;
+  loading?: boolean;
+  loadingText?: string;
   className?: string;
 }) {
+  const { readOnly } = useKitchenAccess();
+  const blocked = disabled || loading || (readOnly && variant !== "ghost");
   const styles = {
     primary: "bg-[#0F7BA8] text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] border-0",
     secondary: "bg-white text-[#0F7BA8] border border-[#0F7BA8] hover:bg-terracota-suave",
@@ -68,10 +75,10 @@ export function PanelCta({
     <button
       type={type}
       onClick={onClick}
-      disabled={disabled}
+      disabled={blocked}
       className={`min-h-[58px] px-5 inline-flex items-center justify-center gap-2 rounded-full text-[17px] font-semibold disabled:opacity-50 ${styles} ${className}`}
     >
-      {children}
+      {loading ? loadingText : children}
     </button>
   );
 }

@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
-import { Plus, ShoppingCart, Minus, FileText } from "lucide-react";
+import { useSubmitLock } from "@/lib/submit-lock";
+import { Plus, Minus, FileText } from "lucide-react";
 import {
   PanelShell, PanelBack, PanelTitle, PanelCta, PanelField,
   PanelOverlay, panelInputClass,
@@ -76,19 +77,6 @@ function InsumosPage() {
   };
   useEffect(() => { cargar(); }, [comedor?.id]);
 
-  const planCompra = useMemo(() => {
-    const finMes = new Date();
-    finMes.setMonth(finMes.getMonth() + 1, 0);
-    const diasFalt = Math.max(1, Math.ceil((finMes.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-    return insumos
-      .map((i) => {
-        const necesario = diasFalt * (consumos[i.id] ?? 0) - Number(i.stock_actual);
-        return { ...i, necesario: Math.max(0, necesario), costo: Math.max(0, necesario) * Number(i.precio_referencial ?? 0) };
-      })
-      .filter((p) => p.necesario > 0);
-  }, [insumos, consumos]);
-  const totalCompra = planCompra.reduce((s, p) => s + p.costo, 0);
-
   const porReponer = insumos.filter((i) => {
     const consumo = consumos[i.id] ?? 0;
     return consumo > 0 && diasAutonomia(i, consumo) <= 10;
@@ -103,7 +91,7 @@ function InsumosPage() {
         title="Almacén"
         subtitle={
           insumos.length === 0
-            ? "Insumos, stock y plan de compra"
+            ? "Insumos y stock"
             : porReponer > 0
               ? `${porReponer} insumo${porReponer === 1 ? "" : "s"} por reponer`
               : `${insumos.length} insumo${insumos.length === 1 ? "" : "s"} en stock`
@@ -179,28 +167,6 @@ function InsumosPage() {
             </div>
           );
         })}
-
-        {planCompra.length > 0 && (
-          <section className="bg-[#C5EBF9] rounded-[20px] p-[22px] flex flex-col gap-3.5 text-[#072249]">
-            <div className="flex items-center gap-2.5">
-              <ShoppingCart size={26} strokeWidth={1.75} />
-              <h3 className="text-[19px] font-bold">Plan de compra del mes</h3>
-            </div>
-            <p className="text-[17px]">Para completar el mes te falta comprar:</p>
-            <ul className="flex flex-col gap-2.5">
-              {planCompra.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 text-[17px]">
-                  <span>{p.nombre} — {p.necesario.toFixed(1)} {p.unidad}</span>
-                  <span className="font-bold shrink-0">S/ {p.costo.toFixed(2)}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="border-t border-[rgba(7,34,73,0.15)] pt-3.5 flex items-center justify-between gap-3">
-              <span className="text-[18px] font-bold">Total estimado</span>
-              <span className="text-[24px] font-bold">S/ {totalCompra.toFixed(2)}</span>
-            </div>
-          </section>
-        )}
 
         <button
           type="button"
@@ -328,19 +294,22 @@ function FormInsumo({ comedorId, cerrar }: { comedorId: string; cerrar: () => vo
   const [stock, setStock] = useState("0");
   const [precio, setPrecio] = useState("");
   const [origen, setOrigen] = useState<"municipalidad" | "comprado" | "donado">("comprado");
-  const guardar = async (e: React.FormEvent) => {
+  const { pending, run } = useSubmitLock();
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from("insumos").insert({
-      comedor_id: comedorId,
-      nombre: nombre.trim(),
-      unidad,
-      stock_actual: Number(stock),
-      consumo_diario_promedio: 0,
-      precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
-      origen,
+    void run(async () => {
+      const { error } = await supabase.from("insumos").insert({
+        comedor_id: comedorId,
+        nombre: nombre.trim(),
+        unidad,
+        stock_actual: Number(stock),
+        consumo_diario_promedio: 0,
+        precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
+        origen,
+      });
+      if (error) { alert(error.message); return; }
+      cerrar();
     });
-    if (error) { alert(error.message); return; }
-    cerrar();
   };
   return (
     <PanelOverlay onClose={cerrar}>
@@ -376,9 +345,9 @@ function FormInsumo({ comedorId, cerrar }: { comedorId: string; cerrar: () => vo
           <button type="button" onClick={cerrar} className="flex-1 min-h-14 rounded-full bg-white border border-[#E0E0E0] text-[#072249] text-[17px] font-semibold">
             Cancelar
           </button>
-          <button type="submit" className="flex-[1.4] min-h-14 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]">
+          <PanelCta type="submit" loading={pending} className="flex-[1.4]">
             Guardar insumo
-          </button>
+          </PanelCta>
         </div>
       </form>
     </PanelOverlay>
@@ -390,24 +359,27 @@ function FormMovimiento({ insumo, tipo, cantidad: cantIni, cerrar }: { insumo: I
   const [nota, setNota] = useState("");
   const [precio, setPrecio] = useState(insumo.precio_referencial != null ? String(insumo.precio_referencial) : "");
   const [origenMov, setOrigenMov] = useState<"compra" | "donacion">("compra");
-  const guardar = async (e: React.FormEvent) => {
+  const { pending, run } = useSubmitLock();
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     const c = Number(cantidad);
     if (!c || c <= 0) return;
-    const nuevoStock = tipo === "ingreso" ? Number(insumo.stock_actual) + c : Number(insumo.stock_actual) - c;
-    const notaFinal = tipo === "ingreso"
-      ? [origenMov === "compra" ? "Compra" : "Donación", nota.trim()].filter(Boolean).join(" · ") || null
-      : nota.trim() || null;
-    const { error: e1 } = await supabase.from("movimientos_insumo").insert({
-      insumo_id: insumo.id,
-      tipo,
-      cantidad: c,
-      nota: notaFinal,
-      precio_unitario: tipo === "ingreso" && origenMov === "compra" && precio ? Number(precio) : null,
+    void run(async () => {
+      const nuevoStock = tipo === "ingreso" ? Number(insumo.stock_actual) + c : Number(insumo.stock_actual) - c;
+      const notaFinal = tipo === "ingreso"
+        ? [origenMov === "compra" ? "Compra" : "Donación", nota.trim()].filter(Boolean).join(" · ") || null
+        : nota.trim() || null;
+      const { error: e1 } = await supabase.from("movimientos_insumo").insert({
+        insumo_id: insumo.id,
+        tipo,
+        cantidad: c,
+        nota: notaFinal,
+        precio_unitario: tipo === "ingreso" && origenMov === "compra" && precio ? Number(precio) : null,
+      });
+      const { error: e2 } = await supabase.from("insumos").update({ stock_actual: Math.max(0, nuevoStock) }).eq("id", insumo.id);
+      if (e1 || e2) { alert((e1 ?? e2)!.message); return; }
+      cerrar();
     });
-    const { error: e2 } = await supabase.from("insumos").update({ stock_actual: Math.max(0, nuevoStock) }).eq("id", insumo.id);
-    if (e1 || e2) { alert((e1 ?? e2)!.message); return; }
-    cerrar();
   };
 
   const esEntrada = tipo === "ingreso";
@@ -469,9 +441,9 @@ function FormMovimiento({ insumo, tipo, cantidad: cantIni, cerrar }: { insumo: I
           <button type="button" onClick={cerrar} className="flex-1 min-h-14 rounded-full bg-white border border-[#E0E0E0] text-[#072249] text-[17px] font-semibold">
             Cancelar
           </button>
-          <button type="submit" className="flex-[1.4] min-h-14 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]">
+          <PanelCta type="submit" loading={pending} loadingText={esEntrada ? "Guardando…" : "Descontando…"} className="flex-[1.4]">
             {esEntrada ? "Sumar al almacén" : "Descontar"}
-          </button>
+          </PanelCta>
         </div>
       </form>
     </PanelOverlay>

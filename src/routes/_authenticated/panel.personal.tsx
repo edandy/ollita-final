@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { CARGO_LABEL, CARGOS_SOLO_LECTURA, type Cargo } from "@/lib/permisos";
 import { crearPersonal, eliminarPersonal, actualizarCargo } from "@/lib/personal.functions";
 import { crearInvitacion, listarInvitaciones, eliminarInvitacion } from "@/lib/invitaciones.functions";
@@ -86,7 +87,7 @@ function PersonalPage() {
   }, [comedor?.id]);
 
   if (loading || !comedor) return null;
-  const soyPresidenta = vinculo?.cargo === "presidenta";
+  const soyPresidenta = vinculo?.cargo === "presidenta" && !vinculo?.esSoloLectura;
 
   const eliminar = async (v: V) => {
     if (
@@ -215,6 +216,7 @@ function Invitaciones({ comedorId }: { comedorId: string }) {
   const [lista, setLista] = useState<any[]>([]);
   const [nuevo, setNuevo] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const { pending, run } = useSubmitLock();
 
   const cargar = async () => {
     try {
@@ -227,15 +229,17 @@ function Invitaciones({ comedorId }: { comedorId: string }) {
     cargar();
   }, [comedorId]);
 
-  const generar = async () => {
+  const generar = () => {
     setErr(null);
-    try {
-      const inv: any = await fnCrear({ data: { comedor_id: comedorId, cargo } });
-      setNuevo(`${window.location.origin}/invitacion/${inv.token}`);
-      cargar();
-    } catch (e: any) {
-      setErr(e?.message ?? "No se pudo generar el enlace");
-    }
+    void run(async () => {
+      try {
+        const inv: any = await fnCrear({ data: { comedor_id: comedorId, cargo } });
+        setNuevo(`${window.location.origin}/invitacion/${inv.token}`);
+        await cargar();
+      } catch (e: any) {
+        setErr(e?.message ?? "No se pudo generar el enlace");
+      }
+    });
   };
 
   return (
@@ -262,9 +266,10 @@ function Invitaciones({ comedorId }: { comedorId: string }) {
         <button
           type="button"
           onClick={generar}
-          className="min-h-14 px-[26px] rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold hover:bg-[#0A5F82]"
+          disabled={pending}
+          className="min-h-14 px-[26px] rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold hover:bg-[#0A5F82] disabled:opacity-50"
         >
-          Generar
+          {pending ? "Creando…" : "Generar"}
         </button>
       </div>
       {err && <p className="text-[15px] text-[#C5352B]">{err}</p>}
@@ -307,29 +312,28 @@ function FormPersonal({ comedorId, cerrar }: { comedorId: string; cerrar: () => 
   const [telefono, setTelefono] = useState("");
   const [cargo, setCargo] = useState<CargoCreable>("socia");
   const [err, setErr] = useState<string | null>(null);
-  const [guardando, setGuardando] = useState(false);
+  const { pending: guardando, run } = useSubmitLock();
 
-  const guardar = async (e: React.FormEvent) => {
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
-    setGuardando(true);
-    try {
-      await fn({
-        data: {
-          nombre: nombre.trim(),
-          dni,
-          pin,
-          telefono,
-          cargo,
-          comedor_id: comedorId,
-        },
-      });
-      cerrar();
-    } catch (e: any) {
-      setErr(e?.message ?? "No se pudo crear");
-    } finally {
-      setGuardando(false);
-    }
+    void run(async () => {
+      try {
+        await fn({
+          data: {
+            nombre: nombre.trim(),
+            dni,
+            pin,
+            telefono,
+            cargo,
+            comedor_id: comedorId,
+          },
+        });
+        cerrar();
+      } catch (e: any) {
+        setErr(e?.message ?? "No se pudo crear");
+      }
+    });
   };
 
   return (

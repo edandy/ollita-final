@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { Upload } from "lucide-react";
 
 type Fila = {
@@ -19,7 +20,7 @@ const ALIAS: Record<string, string> = {
 export function ImportarPadron({ comedorId, alTerminar }: { comedorId: string; alTerminar: () => void }) {
   const [filas, setFilas] = useState<Fila[]>([]);
   const [errores, setErrores] = useState<string[]>([]);
-  const [guardando, setGuardando] = useState(false);
+  const { pending: guardando, run } = useSubmitLock();
   const [resumen, setResumen] = useState<string | null>(null);
 
   const leer = async (file: File) => {
@@ -56,19 +57,19 @@ export function ImportarPadron({ comedorId, alTerminar }: { comedorId: string; a
     setErrores(errs);
   };
 
-  const guardar = async () => {
-    setGuardando(true);
-    let insertados = 0;
-    for (let i = 0; i < filas.length; i += 200) {
-      const lote = filas.slice(i, i + 200).map((f) => ({ ...f, comedor_id: comedorId, categoria: "socia_familia" as const }));
-      const { error } = await supabase.from("beneficiarios").upsert(lote, { onConflict: "comedor_id,dni" });
-      if (error) { setErrores((e) => [...e, error.message]); break; }
-      insertados += lote.length;
-    }
-    setGuardando(false);
-    setResumen(`Se importaron ${insertados} personas al padrón.`);
-    setFilas([]);
-    alTerminar();
+  const guardar = () => {
+    void run(async () => {
+      let insertados = 0;
+      for (let i = 0; i < filas.length; i += 200) {
+        const lote = filas.slice(i, i + 200).map((f) => ({ ...f, comedor_id: comedorId, categoria: "socia_familia" as const }));
+        const { error } = await supabase.from("beneficiarios").upsert(lote, { onConflict: "comedor_id,dni" });
+        if (error) { setErrores((e) => [...e, error.message]); break; }
+        insertados += lote.length;
+      }
+      setResumen(`Se importaron ${insertados} personas al padrón.`);
+      setFilas([]);
+      alTerminar();
+    });
   };
 
   return (

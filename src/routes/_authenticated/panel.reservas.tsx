@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { Share2, Copy, Plus, Trash2, Search } from "lucide-react";
 import { PanelShell, PanelTitle } from "@/components/panel-ui";
 
@@ -310,7 +311,7 @@ function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
   const [dni, setDni] = useState("");
   const [cantidad, setCantidad] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [enviando, setEnviando] = useState(false);
+  const { pending: enviando, run } = useSubmitLock();
   const [buscando, setBuscando] = useState(false);
   const [benef, setBenef] = useState<any>(null);
   const [avisoPadron, setAvisoPadron] = useState<string | null>(null);
@@ -363,7 +364,7 @@ function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
     return s;
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!nombre.trim()) return setError("Pon el nombre del comensal");
@@ -373,28 +374,28 @@ function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
     if (cantidad < 1 || cantidad > maxPor) return setError(`Entre 1 y ${maxPor} raciones`);
     if (cantidad > menu.raciones_disponibles) return setError("No hay tantas raciones disponibles");
 
-    setEnviando(true);
-    const codigo = generarCodigo();
-    const { error: err } = await supabase.from("reservas").insert({
-      menu_id: menu.id,
-      comedor_id: comedor.id,
-      codigo,
-      nombre_comensal: nombre.trim(),
-      telefono: telefono || null,
-      dni: dni || null,
-      cantidad,
-      beneficiario_id: benef?.id ?? null,
-    });
-    setEnviando(false);
-    if (err) return setError(err.message);
+    void run(async () => {
+      const codigo = generarCodigo();
+      const { error: err } = await supabase.from("reservas").insert({
+        menu_id: menu.id,
+        comedor_id: comedor.id,
+        codigo,
+        nombre_comensal: nombre.trim(),
+        telefono: telefono || null,
+        dni: dni || null,
+        cantidad,
+        beneficiario_id: benef?.id ?? null,
+      });
+      if (err) return setError(err.message);
 
-    const total = (cantidad * Number(menu.precio)).toFixed(2);
-    const msg = `¡Hola ${nombre.trim()}! Te reservé ${cantidad} ración(es) de *${menu.nombre_plato}* en ${comedor.nombre}.\nCódigo: *${codigo}*\nTotal: S/ ${total}\nRecoge antes de la 1:00 pm.`;
-    const waUrl = telefono
-      ? `https://wa.me/51${telefono}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    window.open(waUrl, "_blank");
-    listo();
+      const total = (cantidad * Number(menu.precio)).toFixed(2);
+      const msg = `¡Hola ${nombre.trim()}! Te reservé ${cantidad} ración(es) de *${menu.nombre_plato}* en ${comedor.nombre}.\nCódigo: *${codigo}*\nTotal: S/ ${total}\nRecoge antes de la 1:00 pm.`;
+      const waUrl = telefono
+        ? `https://wa.me/51${telefono}?text=${encodeURIComponent(msg)}`
+        : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, "_blank");
+      listo();
+    });
   };
 
   return (
@@ -553,16 +554,13 @@ function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
 function VerificarDni({ reserva, cerrar, confirmar }: any) {
   const [dni, setDni] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { pending, run } = useSubmitLock();
   const onConfirmar = () => {
-    if (!reserva.dni) {
-      confirmar();
-      return;
-    }
-    if (dni !== reserva.dni) {
+    if (reserva.dni && dni !== reserva.dni) {
       setError("El DNI no coincide con la reserva");
       return;
     }
-    confirmar();
+    void run(async () => { await confirmar(); });
   };
   return (
     <div
@@ -612,9 +610,10 @@ function VerificarDni({ reserva, cerrar, confirmar }: any) {
           <button
             type="button"
             onClick={onConfirmar}
-            className="flex-[1.4] min-h-14 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"
+            disabled={pending}
+            className="flex-[1.4] min-h-14 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-60"
           >
-            Confirmar entrega
+            {pending ? "Guardando…" : "Confirmar entrega"}
           </button>
         </div>
       </div>

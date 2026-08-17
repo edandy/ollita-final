@@ -781,6 +781,69 @@ export type Database = {
           },
         ]
       }
+      supervisor_assignments: {
+        Row: {
+          comedor_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comedor_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comedor_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_assignments_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "supervisors"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      supervisors: {
+        Row: {
+          access_level: Database["public"]["Enums"]["access_level"]
+          created_at: string
+          dni: string | null
+          name: string
+          phone: string | null
+          user_id: string
+        }
+        Insert: {
+          access_level?: Database["public"]["Enums"]["access_level"]
+          created_at?: string
+          dni?: string | null
+          name: string
+          phone?: string | null
+          user_id: string
+        }
+        Update: {
+          access_level?: Database["public"]["Enums"]["access_level"]
+          created_at?: string
+          dni?: string | null
+          name?: string
+          phone?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       transacciones: {
         Row: {
           caja_dia_id: string
@@ -893,6 +956,8 @@ export type Database = {
         Args: { _comedor_id: string }
         Returns: boolean
       }
+      can_view_comedor: { Args: { _comedor_id: string }; Returns: boolean }
+      can_write_comedor: { Args: { _comedor_id: string }; Returns: boolean }
       es_miembro_de: { Args: { _comedor_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -901,6 +966,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_full_supervisor_of: { Args: { _comedor_id: string }; Returns: boolean }
       verificar_padron: {
         Args: { _comedor_id: string; _dni: string }
         Returns: {
@@ -913,7 +979,8 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin"
+      access_level: "view" | "full"
+      app_role: "admin" | "supervisor"
       beneficiario_categoria:
         | "socia_familia"
         | "publico_recurrente"
@@ -1075,7 +1142,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin"],
+      access_level: ["view", "full"],
+      app_role: ["admin", "supervisor"],
       beneficiario_categoria: [
         "socia_familia",
         "publico_recurrente",

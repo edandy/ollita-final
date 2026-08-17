@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Home, Wallet, ClipboardList, Menu as MenuIcon, LogOut } from "lucide-react";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { puede, type Accion, type Cargo } from "@/lib/permisos";
+import { SUPERVISOR_KITCHEN_STORAGE_KEY, ADMIN_KITCHEN_STORAGE_KEY } from "@/lib/access";
+import { KitchenAccessContext } from "@/lib/kitchen-access-context";
 import logoColor from "@/assets/logo-ollita.svg";
 
 export const Route = createFileRoute("/_authenticated/panel")({
@@ -12,15 +14,33 @@ export const Route = createFileRoute("/_authenticated/panel")({
 
 function PanelLayout() {
   const navigate = useNavigate();
-  const { vinculo, comedor, loading } = useMiComedor();
+  const { vinculo, comedor, loading, platformRole } = useMiComedor();
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
     navigate({ to: "/" });
   };
   const salirDeAdmin = () => {
-    window.localStorage.removeItem("admin_comedor_id");
+    window.localStorage.removeItem(ADMIN_KITCHEN_STORAGE_KEY);
     window.location.href = "/admin";
   };
+  const salirDeSupervisor = () => {
+    window.localStorage.removeItem(SUPERVISOR_KITCHEN_STORAGE_KEY);
+    window.location.href = "/admin";
+  };
+
+  if (loading) {
+    return <div className="min-h-screen grid place-items-center text-[#718096] bg-[#F0F0F0]">Cargando tu comedor…</div>;
+  }
+
+  if (platformRole === "supervisor" && (!vinculo || !comedor)) {
+    if (typeof window !== "undefined") window.location.href = "/admin";
+    return <div className="min-h-screen grid place-items-center text-[#718096] bg-[#F0F0F0]">Volviendo a tus ollas…</div>;
+  }
+
+  if (platformRole === "admin" && (!vinculo || !comedor)) {
+    if (typeof window !== "undefined") window.location.href = "/admin";
+    return <div className="min-h-screen grid place-items-center text-[#718096] bg-[#F0F0F0]">Volviendo a administración…</div>;
+  }
 
   if (loading) {
     return <div className="min-h-screen grid place-items-center text-[#718096] bg-[#F0F0F0]">Cargando tu comedor…</div>;
@@ -50,11 +70,24 @@ function PanelLayout() {
   });
 
   return (
+    <KitchenAccessContext.Provider value={{ readOnly: !!vinculo.esSoloLectura }}>
     <div className="min-h-screen pb-[104px] bg-[#F0F0F0] text-bosque relative">
       {vinculo.esAdmin && (
         <div className="bg-bosque text-white px-4 py-2.5 text-xs flex items-center justify-between gap-3">
           <span className="truncate">Estás gestionando esta olla como administrador.</span>
           <button onClick={salirDeAdmin} className="shrink-0 underline font-semibold">
+            Volver a Administración
+          </button>
+        </div>
+      )}
+      {vinculo.esSupervisor && (
+        <div className="bg-bosque text-white px-4 py-2.5 text-xs flex items-center justify-between gap-3">
+          <span className="truncate">
+            {vinculo.esSoloLectura
+              ? "Supervisando esta olla (solo lectura)."
+              : "Supervisando esta olla con acceso completo."}
+          </span>
+          <button onClick={salirDeSupervisor} className="shrink-0 underline font-semibold">
             Volver a Administración
           </button>
         </div>
@@ -85,12 +118,13 @@ function PanelLayout() {
       </header>
 
       <Outlet />
-      <BottomNav cargo={vinculo.cargo as Cargo} />
+      <BottomNav cargo={vinculo.cargo as Cargo} isSupervisor={!!vinculo.esSupervisor} />
     </div>
+    </KitchenAccessContext.Provider>
   );
 }
 
-function BottomNav({ cargo }: { cargo: Cargo }) {
+function BottomNav({ cargo, isSupervisor }: { cargo: Cargo; isSupervisor?: boolean }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const items = (
     [
@@ -98,7 +132,7 @@ function BottomNav({ cargo }: { cargo: Cargo }) {
       { to: "/panel/caja", label: "Caja", icon: Wallet, key: "caja" as Accion },
       { to: "/panel/reservas", label: "Reservas", icon: ClipboardList, key: "reservas" as Accion },
     ] as const
-  ).filter((i) => puede(cargo, i.key));
+  ).filter((i) => puede(cargo, i.key, { isSupervisor }));
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-[12px] border-t border-[#E0E0E0]">

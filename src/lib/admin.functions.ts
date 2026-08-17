@@ -13,6 +13,19 @@ async function exigirAdmin(context: any) {
   if (!data) throw new Error("Solo el administrador de la plataforma puede hacer esto");
 }
 
+async function platformRoles(context: any) {
+  const { data, error } = await context.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId);
+  if (error) throw new Error(error.message);
+  const roles = (data ?? []).map((r: { role: string }) => r.role);
+  return {
+    admin: roles.includes("admin"),
+    supervisor: roles.includes("supervisor"),
+  };
+}
+
 export const soyAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -24,21 +37,28 @@ export const soyAdmin = createServerFn({ method: "GET" })
 export const adminListarComedores = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await exigirAdmin(context);
+    const { admin, supervisor } = await platformRoles(context);
+    if (!admin && !supervisor) throw new Error("No tienes permiso para ver esta sección");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: comedores }, { data: personal }, { data: benef }, { data: reservas }] = await Promise.all([
+    const [{ data: comedores }, { data: personal }, { data: benef }, { data: reservas }, { data: assignments }] = await Promise.all([
       supabaseAdmin.from("comedores").select("id,nombre,tipo,distrito,direccion,activo,precio_menu,raciones_diarias,telefono_whatsapp,yape_numero,created_at").order("created_at", { ascending: false }),
       supabaseAdmin.from("usuarios_comedor").select("comedor_id"),
       supabaseAdmin.from("beneficiarios").select("comedor_id"),
       supabaseAdmin.from("reservas").select("comedor_id"),
+      supervisor && !admin
+        ? supabaseAdmin.from("supervisor_assignments").select("comedor_id").eq("user_id", context.userId)
+        : Promise.resolve({ data: [] as { comedor_id: string }[] }),
     ]);
+    const allowed = admin ? null : new Set((assignments ?? []).map((a) => a.comedor_id));
     const cuenta = (rows: any[] | null, id: string) => (rows ?? []).filter((r) => r.comedor_id === id).length;
-    return (comedores ?? []).map((c) => ({
-      ...c,
-      socias: cuenta(personal, c.id),
-      beneficiarios: cuenta(benef, c.id),
-      reservas: cuenta(reservas, c.id),
-    }));
+    return (comedores ?? [])
+      .filter((c) => !allowed || allowed.has(c.id))
+      .map((c) => ({
+        ...c,
+        socias: cuenta(personal, c.id),
+        beneficiarios: cuenta(benef, c.id),
+        reservas: cuenta(reservas, c.id),
+      }));
   });
 
 export const adminActivarComedor = createServerFn({ method: "POST" })

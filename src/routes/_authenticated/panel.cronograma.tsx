@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  PanelShell, PanelBack, PanelTitle, PanelField, PanelOverlay, panelInputClass,
+  PanelShell, PanelBack, PanelTitle, PanelField, PanelCta, PanelOverlay, panelInputClass,
 } from "@/components/panel-ui";
 
 export const Route = createFileRoute("/_authenticated/panel/cronograma")({
@@ -223,25 +224,28 @@ function FormCrono({
   const [directiva, setDirectiva] = useState(inicial?.directiva_de_turno ?? "");
   const [notas, setNotas] = useState(inicial?.notas ?? "");
   const [manual, setManual] = useState("");
+  const { pending, run } = useSubmitLock();
 
-  const guardar = async (e: React.FormEvent) => {
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     const extras = manual
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter(Boolean);
     const sociasFinal = Array.from(new Set([...seleccion, ...extras]));
-    await supabase.from("cronograma").upsert(
-      {
-        comedor_id: comedorId,
-        fecha,
-        socias: sociasFinal,
-        directiva_de_turno: directiva || null,
-        notas: notas || null,
-      },
-      { onConflict: "comedor_id,fecha" },
-    );
-    cerrar();
+    void run(async () => {
+      await supabase.from("cronograma").upsert(
+        {
+          comedor_id: comedorId,
+          fecha,
+          socias: sociasFinal,
+          directiva_de_turno: directiva || null,
+          notas: notas || null,
+        },
+        { onConflict: "comedor_id,fecha" },
+      );
+      cerrar();
+    });
   };
 
   return (
@@ -316,12 +320,9 @@ function FormCrono({
           >
             Cancelar
           </button>
-          <button
-            type="submit"
-            className="flex-[1.4] min-h-14 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"
-          >
+          <PanelCta type="submit" loading={pending} className="flex-[1.4]">
             Guardar turno
-          </button>
+          </PanelCta>
         </div>
       </form>
     </PanelOverlay>

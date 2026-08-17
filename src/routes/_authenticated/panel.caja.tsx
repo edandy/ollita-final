@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { subirFoto } from "@/lib/subirFoto";
 import { Plus, Minus, Printer, Lock, Unlock, Camera, ImagePlus, X } from "lucide-react";
 import { PanelShell, PanelTitle } from "@/components/panel-ui";
@@ -60,7 +61,7 @@ function CajaPage() {
   const [caja, setCaja] = useState<Caja | null>(null);
   const [trx, setTrx] = useState<Trx[]>([]);
   const [mes, setMes] = useState<Caja[]>([]);
-  const [abriendo, setAbriendo] = useState(false);
+  const { pending: abriendo, run: runAbrir } = useSubmitLock();
   const [capitalInicial, setCapitalInicial] = useState("0");
   const [formTrx, setFormTrx] = useState<"ingreso" | "egreso" | null>(null);
 
@@ -93,19 +94,19 @@ function CajaPage() {
     cargar();
   }, [comedor?.id]);
 
-  const abrir = async () => {
+  const abrir = () => {
     if (!comedor) return;
-    setAbriendo(true);
-    const hoy = new Date().toISOString().slice(0, 10);
-    const { error } = await supabase
-      .from("caja_dias")
-      .insert({ comedor_id: comedor.id, fecha: hoy, capital_inicial: Number(capitalInicial) });
-    setAbriendo(false);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    cargar();
+    void runAbrir(async () => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const { error } = await supabase
+        .from("caja_dias")
+        .insert({ comedor_id: comedor.id, fecha: hoy, capital_inicial: Number(capitalInicial) });
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      await cargar();
+    });
   };
 
   const cerrar = async () => {
@@ -383,6 +384,7 @@ function FormTrx({
   const [nota, setNota] = useState("");
   const [comprobante, setComprobante] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
+  const { pending, run } = useSubmitLock();
   const camRef = useRef<HTMLInputElement>(null);
   const galRef = useRef<HTMLInputElement>(null);
 
@@ -432,21 +434,23 @@ function FormTrx({
     }
   };
 
-  const guardar = async (e: React.FormEvent) => {
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from("transacciones").insert({
-      caja_dia_id: cajaId,
-      tipo,
-      categoria: opt.categoria as any,
-      monto: Number(monto),
-      nota: nota || null,
-      comprobante_url: comprobante,
+    void run(async () => {
+      const { error } = await supabase.from("transacciones").insert({
+        caja_dia_id: cajaId,
+        tipo,
+        categoria: opt.categoria as any,
+        monto: Number(monto),
+        nota: nota || null,
+        comprobante_url: comprobante,
+      });
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      cerrar();
     });
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    cerrar();
   };
 
   return (
@@ -571,10 +575,10 @@ function FormTrx({
             </button>
             <button
               type="submit"
-              disabled={subiendo}
+              disabled={subiendo || pending}
               className="flex-[1.4] min-h-14 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-60"
             >
-              {tipo === "ingreso" ? "Guardar ingreso" : "Guardar egreso"}
+              {pending ? "Guardando…" : tipo === "ingreso" ? "Guardar ingreso" : "Guardar egreso"}
             </button>
           </div>
         </form>

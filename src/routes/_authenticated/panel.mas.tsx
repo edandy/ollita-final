@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "@tanstack/react-router";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { puede, type Cargo, type Accion } from "@/lib/permisos";
-import { soyAdmin } from "@/lib/admin.functions";
+import { getPlatformAccess } from "@/lib/supervisor.functions";
 import { PanelShell, PanelTitle, PanelIconBox, PanelCta } from "@/components/panel-ui";
 
 export const Route = createFileRoute("/_authenticated/panel/mas")({
@@ -20,10 +20,10 @@ function MasPage() {
   const navigate = useNavigate();
   const { vinculo } = useMiComedor();
   const cargo = vinculo?.cargo as Cargo | undefined;
-  const fnAdmin = useServerFn(soyAdmin);
+  const fnAccess = useServerFn(getPlatformAccess);
   const [admin, setAdmin] = useState(false);
   useEffect(() => {
-    fnAdmin({}).then((r: any) => setAdmin(!!r.admin)).catch(() => setAdmin(false));
+    fnAccess({}).then((r: any) => setAdmin(!!r.admin || !!r.supervisor)).catch(() => setAdmin(false));
   }, []);
   const cerrar = async () => {
     await supabase.auth.signOut();
@@ -39,7 +39,7 @@ function MasPage() {
       { to: "/panel/personal", icon: UserCog, label: "Personal del comedor", desc: "Cuentas y cargos del equipo", key: "personal" as Accion },
       { to: "/panel/perfil", icon: Store, label: "Perfil del comedor", desc: "Datos públicos, horario y Yape", key: "perfil" as Accion },
     ] as const
-  ).filter((i) => puede(cargo, i.key));
+  ).filter((i) => puede(cargo, i.key, { isSupervisor: !!vinculo?.esSupervisor }));
 
   return (
     <PanelShell>
@@ -56,7 +56,7 @@ function MasPage() {
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-0.5">
               <span className="text-[19px] font-bold">Administración general</span>
-              <span className="text-base text-[#718096] truncate">Todas las ollas y comedores</span>
+              <span className="text-base text-[#718096] truncate">{vinculo?.esSupervisor ? "Tus ollas asignadas" : "Todas las ollas y comedores"}</span>
             </div>
             <ChevronRight size={24} className="text-[#9197B3] shrink-0" />
           </Link>

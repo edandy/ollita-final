@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { subirFoto } from "@/lib/subirFoto";
 import { Camera, Trash2, MapPin, CheckCircle2 } from "lucide-react";
 import {
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/panel/perfil")({
 function PerfilPage() {
   const { comedor, loading, recargar } = useMiComedor();
   const [f, setF] = useState<any>(null);
-  const [guardando, setGuardando] = useState(false);
+  const { pending: guardando, run } = useSubmitLock();
   const [ok, setOk] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [ubicando, setUbicando] = useState(false);
@@ -26,25 +27,25 @@ function PerfilPage() {
 
   if (loading || !f) return null;
 
-  const guardar = async (e: React.FormEvent) => {
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
-    setGuardando(true);
-    const { error } = await supabase.from("comedores").update({
-      nombre: f.nombre, descripcion: f.descripcion, direccion: f.direccion, distrito: f.distrito,
-      telefono_whatsapp: f.telefono_whatsapp || null,
-      yape_numero: f.yape_numero || null,
-      raciones_diarias: Number(f.raciones_diarias),
-      precio_menu: Number(f.precio_menu),
-      precio_menu_publico: f.precio_menu_publico === "" || f.precio_menu_publico == null ? null : Number(f.precio_menu_publico),
-      max_raciones_por_reserva: Number(f.max_raciones_por_reserva),
-      horario_inicio: f.horario_inicio, horario_fin: f.horario_fin,
-      lat: Number(f.lat), lng: Number(f.lng),
-      foto_url: f.foto_url ?? null,
-    }).eq("id", f.id);
-    setGuardando(false);
-    if (error) { alert(error.message); return; }
-    setOk(true); setTimeout(() => setOk(false), 1800);
-    recargar();
+    void run(async () => {
+      const { error } = await supabase.from("comedores").update({
+        nombre: f.nombre, descripcion: f.descripcion, direccion: f.direccion, distrito: f.distrito,
+        telefono_whatsapp: f.telefono_whatsapp || null,
+        yape_numero: f.yape_numero || null,
+        raciones_diarias: Number(f.raciones_diarias),
+        precio_menu: Number(f.precio_menu),
+        precio_menu_publico: f.precio_menu_publico === "" || f.precio_menu_publico == null ? null : Number(f.precio_menu_publico),
+        max_raciones_por_reserva: Number(f.max_raciones_por_reserva),
+        horario_inicio: f.horario_inicio, horario_fin: f.horario_fin,
+        lat: Number(f.lat), lng: Number(f.lng),
+        foto_url: f.foto_url ?? null,
+      }).eq("id", f.id);
+      if (error) { alert(error.message); return; }
+      setOk(true); setTimeout(() => setOk(false), 1800);
+      recargar();
+    });
   };
 
   const upd = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
@@ -157,8 +158,8 @@ function PerfilPage() {
             Párate en la puerta del comedor y toca el botón. También puedes escribir la dirección arriba.
           </p>
 
-          <PanelCta type="submit" disabled={guardando} className="w-full">
-            {guardando ? "Guardando…" : "Guardar cambios"}
+          <PanelCta type="submit" loading={guardando} className="w-full">
+            Guardar cambios
           </PanelCta>
           {ok && (
             <p className="text-bosque text-center font-semibold flex items-center gap-1.5 justify-center">

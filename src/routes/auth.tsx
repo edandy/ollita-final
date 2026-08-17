@@ -6,6 +6,7 @@ import { ArrowLeft, Store, User } from "lucide-react";
 import { z } from "zod";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 import { emailDeDni, claveDePin, esDni } from "@/lib/dni-cuenta";
+import { useSubmitLock } from "@/lib/submit-lock";
 
 const searchSchema = z.object({
   modo: z.enum(["login", "registro"]).optional(),
@@ -31,7 +32,7 @@ function AuthPage() {
   const [telefono, setTelefono] = useState("");
   const [dni, setDni] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(false);
+  const { pending: cargando, run } = useSubmitLock();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data, error }) => {
@@ -44,69 +45,71 @@ function AuthPage() {
     });
   }, [navigate]);
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setCargando(true);
 
     if (modo === "login") {
-      const usuario = email.trim();
-      const cred = esDni(usuario)
-        ? { email: emailDeDni(usuario), password: claveDePin(usuario, password) }
-        : { email: usuario, password };
-      const { error } = await supabase.auth.signInWithPassword(cred);
-      if (error) { setError(esDni(usuario) ? "DNI o PIN incorrectos" : "Correo o contraseña incorrectos"); setCargando(false); return; }
-      // Después de login: si tiene vínculo a comedor → panel; si no → home
-      const { data: u } = await supabase.auth.getUser();
-      if (u.user) {
-        const { data: rol } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
-        if (rol) { navigate({ to: "/admin" }); return; }
-        const { data: v } = await supabase.from("usuarios_comedor").select("id").eq("user_id", u.user.id).maybeSingle();
-        navigate({ to: v ? "/panel" : "/" });
-      } else navigate({ to: "/" });
+      void run(async () => {
+        const usuario = email.trim();
+        const cred = esDni(usuario)
+          ? { email: emailDeDni(usuario), password: claveDePin(usuario, password) }
+          : { email: usuario, password };
+        const { error } = await supabase.auth.signInWithPassword(cred);
+        if (error) { setError(esDni(usuario) ? "DNI o PIN incorrectos" : "Correo o contraseña incorrectos"); return; }
+        const { data: u } = await supabase.auth.getUser();
+        if (u.user) {
+          const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+          const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+          const isSupervisor = (roles ?? []).some((r) => r.role === "supervisor");
+          if (isAdmin || isSupervisor) { navigate({ to: "/admin" }); return; }
+          const { data: v } = await supabase.from("usuarios_comedor").select("id").eq("user_id", u.user.id).maybeSingle();
+          navigate({ to: v ? "/panel" : "/" });
+        } else navigate({ to: "/" });
+      });
       return;
     }
 
-    // Registro — validar TODO antes de crear la cuenta
-    if (!/^\d{9}$/.test(telefono)) { setError("El celular debe tener 9 dígitos"); setCargando(false); return; }
-    if (!/^\d{8}$/.test(dni)) { setError("El DNI debe tener 8 dígitos"); setCargando(false); return; }
-    if (!nombre.trim()) { setError("Pon tu nombre"); setCargando(false); return; }
-    if (tipo === "comedor" && !nombreComedor.trim()) { setError("Pon el nombre del comedor"); setCargando(false); return; }
+    if (!/^\d{9}$/.test(telefono)) { setError("El celular debe tener 9 dígitos"); return; }
+    if (!/^\d{8}$/.test(dni)) { setError("El DNI debe tener 8 dígitos"); return; }
+    if (!nombre.trim()) { setError("Pon tu nombre"); return; }
+    if (tipo === "comedor" && !nombreComedor.trim()) { setError("Pon el nombre del comedor"); return; }
 
-    const { data, error: eUp } = await supabase.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: `${window.location.origin}/` },
+    void run(async () => {
+      const { data, error: eUp } = await supabase.auth.signUp({
+        email, password,
+        options: { emailRedirectTo: `${window.location.origin}/` },
+      });
+      if (eUp || !data.user) { setError(eUp?.message ?? "No pudimos crear la cuenta"); return; }
+      if (!data.session) {
+        const { error: eSign } = await supabase.auth.signInWithPassword({ email, password });
+        if (eSign) { setError("Cuenta creada. Revisa tu correo para confirmarla y vuelve a ingresar."); return; }
+      }
+
+      if (tipo === "comedor") {
+        const { data: comedor, error: e2 } = await supabase
+          .from("comedores")
+          .insert({
+            nombre: nombreComedor, tipo: "comedor",
+            direccion: "Por completar", distrito: "Por completar",
+            lat: -12.0464, lng: -77.0428,
+          })
+          .select().single();
+        if (e2 || !comedor) { setError(e2?.message ?? "No pudimos crear el comedor"); return; }
+        const { error: eV } = await supabase.from("usuarios_comedor").insert({
+          user_id: data.user.id, comedor_id: comedor.id, nombre, cargo: "presidenta",
+          telefono, dni,
+        });
+        if (eV) { setError("Creamos tu cuenta pero no pudimos vincularte al comedor. Intenta iniciar sesión."); return; }
+        navigate({ to: "/panel" });
+      } else {
+        const { error: eC } = await supabase.from("clientes").insert({
+          user_id: data.user.id, nombre, telefono, dni,
+        });
+        if (eC) { setError(eC.message); return; }
+        navigate({ to: "/" });
+      }
     });
-    if (eUp || !data.user) { setError(eUp?.message ?? "No pudimos crear la cuenta"); setCargando(false); return; }
-    if (!data.session) {
-      const { error: eSign } = await supabase.auth.signInWithPassword({ email, password });
-      if (eSign) { setError("Cuenta creada. Revisa tu correo para confirmarla y vuelve a ingresar."); setCargando(false); return; }
-    }
-
-    if (tipo === "comedor") {
-      const { data: comedor, error: e2 } = await supabase
-        .from("comedores")
-        .insert({
-          nombre: nombreComedor, tipo: "comedor",
-          direccion: "Por completar", distrito: "Por completar",
-          lat: -12.0464, lng: -77.0428,
-        })
-        .select().single();
-      if (e2 || !comedor) { setError(e2?.message ?? "No pudimos crear el comedor"); setCargando(false); return; }
-      const { error: eV } = await supabase.from("usuarios_comedor").insert({
-        user_id: data.user.id, comedor_id: comedor.id, nombre, cargo: "presidenta",
-        telefono, dni,
-      });
-      if (eV) { setError("Creamos tu cuenta pero no pudimos vincularte al comedor. Intenta iniciar sesión."); setCargando(false); return; }
-      navigate({ to: "/panel" });
-    } else {
-      // Cliente
-      const { error: eC } = await supabase.from("clientes").insert({
-        user_id: data.user.id, nombre, telefono, dni,
-      });
-      if (eC) { setError(eC.message); setCargando(false); return; }
-      navigate({ to: "/" });
-    }
   };
 
   return (

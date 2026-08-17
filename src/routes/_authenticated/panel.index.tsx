@@ -6,6 +6,7 @@ import {
   ChevronDown, ShoppingCart, ChefHat, ClipboardCheck, Plus,
 } from "lucide-react";
 import { useMiComedor } from "@/lib/useMiComedor";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { subirFoto } from "@/lib/subirFoto";
 
 export const Route = createFileRoute("/_authenticated/panel/")({
@@ -35,12 +36,12 @@ function Hoy() {
   const [descripcion, setDescripcion] = useState("");
   const [precio, setPrecio] = useState("");
   const [raciones, setRaciones] = useState("");
-  const [publicando, setPublicando] = useState(false);
+  const { pending: publicando, run: runPublicar } = useSubmitLock();
   const [foto, setFoto] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [entregaCant, setEntregaCant] = useState("1");
   const [entregaNombre, setEntregaNombre] = useState("");
-  const [entregando, setEntregando] = useState(false);
+  const { pending: entregando, run: runEntregar } = useSubmitLock();
   const [padron, setPadron] = useState<any[]>([]);
   const [busqPadron, setBusqPadron] = useState("");
   const [benefSel, setBenefSel] = useState<any>(null);
@@ -91,35 +92,39 @@ function Hoy() {
   }, [comedor?.id]);
 
   if (loading || !comedor) return null;
+  const readOnly = !!vinculo?.esSoloLectura;
 
   const marcar = (paso: string, valor: boolean, set: (v: boolean) => void) => {
+    if (readOnly) return;
     guardarMarca(comedor.id, paso, valor);
     set(valor);
   };
 
-  const publicar = async (e: React.FormEvent) => {
+  const publicar = (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     const r = Math.max(1, Number(raciones) || 0);
     if (!r) { alert("Indica cuántas raciones vas a cocinar hoy."); return; }
-    setPublicando(true);
-    const { error } = await supabase.from("menus").upsert({
-      comedor_id: comedor.id,
-      fecha: hoyISO(),
-      nombre_plato: plato.trim(),
-      descripcion: descripcion.trim() || null,
-      precio: Number(precio),
-      publicado: true,
-      raciones_disponibles: r,
-      foto_url: foto,
-    }, { onConflict: "comedor_id,fecha" });
-    setPublicando(false);
-    if (error) { alert("No pudimos publicar: " + error.message); return; }
-    setPlato(""); setDescripcion(""); setFoto(null);
-    setAbierto(3);
-    cargar();
+    void runPublicar(async () => {
+      const { error } = await supabase.from("menus").upsert({
+        comedor_id: comedor.id,
+        fecha: hoyISO(),
+        nombre_plato: plato.trim(),
+        descripcion: descripcion.trim() || null,
+        precio: Number(precio),
+        publicado: true,
+        raciones_disponibles: r,
+        foto_url: foto,
+      }, { onConflict: "comedor_id,fecha" });
+      if (error) { alert("No pudimos publicar: " + error.message); return; }
+      setPlato(""); setDescripcion(""); setFoto(null);
+      setAbierto(3);
+      await cargar();
+    });
   };
 
   const onSubirFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (readOnly) return;
     const file = e.target.files?.[0]; if (!file || !comedor) return;
     setSubiendoFoto(true);
     try { const url = await subirFoto(file, `comedor/${comedor.id}/menus`); setFoto(url); }
@@ -128,6 +133,7 @@ function Hoy() {
   };
 
   const marcarRecogida = async (rId: string) => {
+    if (readOnly) return;
     const r = reservas.find((x) => x.id === rId);
     await supabase.from("reservas").update({ estado: "recogida" }).eq("id", rId);
     if (r && r.estado !== "recogida" && comedor) {
@@ -146,41 +152,41 @@ function Hoy() {
     cargar();
   };
 
-  const entregarSinReserva = async () => {
-    if (!menu || !comedor) return;
+  const entregarSinReserva = () => {
+    if (readOnly || !menu || !comedor) return;
     const cant = Math.max(1, Number(entregaCant) || 1);
     if (menu.raciones_disponibles < cant) { alert("No hay raciones disponibles suficientes."); return; }
-    setEntregando(true);
-    const codigo = "LIBRE-" + Math.random().toString(36).slice(2, 6).toUpperCase();
-    const { error } = await supabase.from("reservas").insert({
-      menu_id: menu.id,
-      comedor_id: comedor.id,
-      codigo,
-      nombre_comensal: entregaNombre.trim() || null,
-      telefono: null,
-      cantidad: cant,
-      estado: "recogida",
-      dni: benefSel?.dni ?? null,
-      beneficiario_id: benefSel?.id ?? null,
-    } as any);
-    if (error) { setEntregando(false); alert(error.message); return; }
-    const { data: caja } = await supabase.from("caja_dias")
-      .select("id, cerrado").eq("comedor_id", comedor.id).eq("fecha", hoyISO()).maybeSingle();
-    if (caja && !(caja as any).cerrado) {
-      await supabase.from("transacciones").insert({
-        caja_dia_id: (caja as any).id,
-        tipo: "ingreso",
-        categoria: "venta_menus",
-        monto: Number(comedor.precio_menu) * cant,
-        nota: `Entrega libre ${codigo}${entregaNombre.trim() ? " · " + entregaNombre.trim() : ""} · ${cant} ración(es)`,
-      });
-    }
-    setEntregaCant("1");
-    setEntregaNombre("");
-    setBenefSel(null);
-    setBusqPadron("");
-    setEntregando(false);
-    cargar();
+    void runEntregar(async () => {
+      const codigo = "LIBRE-" + Math.random().toString(36).slice(2, 6).toUpperCase();
+      const { error } = await supabase.from("reservas").insert({
+        menu_id: menu.id,
+        comedor_id: comedor.id,
+        codigo,
+        nombre_comensal: entregaNombre.trim() || null,
+        telefono: null,
+        cantidad: cant,
+        estado: "recogida",
+        dni: benefSel?.dni ?? null,
+        beneficiario_id: benefSel?.id ?? null,
+      } as any);
+      if (error) { alert(error.message); return; }
+      const { data: caja } = await supabase.from("caja_dias")
+        .select("id, cerrado").eq("comedor_id", comedor.id).eq("fecha", hoyISO()).maybeSingle();
+      if (caja && !(caja as any).cerrado) {
+        await supabase.from("transacciones").insert({
+          caja_dia_id: (caja as any).id,
+          tipo: "ingreso",
+          categoria: "venta_menus",
+          monto: Number(comedor.precio_menu) * cant,
+          nota: `Entrega libre ${codigo}${entregaNombre.trim() ? " · " + entregaNombre.trim() : ""} · ${cant} ración(es)`,
+        });
+      }
+      setEntregaCant("1");
+      setEntregaNombre("");
+      setBenefSel(null);
+      setBusqPadron("");
+      await cargar();
+    });
   };
 
   const pendientes = reservas.filter((r) => r.estado === "pendiente").reduce((s, r) => s + r.cantidad, 0);
@@ -550,7 +556,7 @@ function CompraModal({ insumos: inicial, comedor, onListaCambiada, cerrar }: {
 }) {
   const [lista, setLista] = useState(inicial);
   const [filas, setFilas] = useState<Record<string, { cant: string; precio: string }>>({});
-  const [guardando, setGuardando] = useState(false);
+  const { pending: guardando, run } = useSubmitLock();
   const [agregar, setAgregar] = useState(false);
   const set = (id: string, campo: "cant" | "precio", v: string) =>
     setFilas((f) => ({ ...f, [id]: { cant: f[id]?.cant ?? "", precio: f[id]?.precio ?? "", [campo]: v } }));
@@ -560,37 +566,37 @@ function CompraModal({ insumos: inicial, comedor, onListaCambiada, cerrar }: {
     return s + (Number(f.cant) || 0) * (Number(f.precio) || Number(i.precio_referencial) || 0);
   }, 0);
 
-  const guardar = async () => {
-    setGuardando(true);
-    const movimientos: any[] = [];
-    const updates: any[] = [];
-    for (const i of lista) {
-      const f = filas[i.id];
-      const c = Number(f?.cant);
-      if (!c || c <= 0) continue;
-      const pu = Number(f?.precio) || Number(i.precio_referencial) || 0;
-      movimientos.push({ insumo_id: i.id, tipo: "ingreso", cantidad: c, precio_unitario: pu || null, nota: "Compra del día" });
-      updates.push(supabase.from("insumos").update({ stock_actual: Number(i.stock_actual) + c }).eq("id", i.id));
-    }
-    if (movimientos.length === 0) { setGuardando(false); cerrar(false); return; }
-    const { error } = await supabase.from("movimientos_insumo").insert(movimientos);
-    if (error) { setGuardando(false); alert(error.message); return; }
-    await Promise.all(updates);
-    if (total > 0) {
-      const { data: caja } = await supabase.from("caja_dias")
-        .select("id, cerrado").eq("comedor_id", comedor.id).eq("fecha", hoyISO()).maybeSingle();
-      if (caja && !(caja as any).cerrado) {
-        await supabase.from("transacciones").insert({
-          caja_dia_id: (caja as any).id,
-          tipo: "egreso",
-          categoria: "compra_insumos",
-          monto: total,
-          nota: "Compra de insumos del día",
-        });
+  const guardar = () => {
+    void run(async () => {
+      const movimientos: any[] = [];
+      const updates: any[] = [];
+      for (const i of lista) {
+        const f = filas[i.id];
+        const c = Number(f?.cant);
+        if (!c || c <= 0) continue;
+        const pu = Number(f?.precio) || Number(i.precio_referencial) || 0;
+        movimientos.push({ insumo_id: i.id, tipo: "ingreso", cantidad: c, precio_unitario: pu || null, nota: "Compra del día" });
+        updates.push(supabase.from("insumos").update({ stock_actual: Number(i.stock_actual) + c }).eq("id", i.id));
       }
-    }
-    setGuardando(false);
-    cerrar(true);
+      if (movimientos.length === 0) { cerrar(false); return; }
+      const { error } = await supabase.from("movimientos_insumo").insert(movimientos);
+      if (error) { alert(error.message); return; }
+      await Promise.all(updates);
+      if (total > 0) {
+        const { data: caja } = await supabase.from("caja_dias")
+          .select("id, cerrado").eq("comedor_id", comedor.id).eq("fecha", hoyISO()).maybeSingle();
+        if (caja && !(caja as any).cerrado) {
+          await supabase.from("transacciones").insert({
+            caja_dia_id: (caja as any).id,
+            tipo: "egreso",
+            categoria: "compra_insumos",
+            monto: total,
+            nota: "Compra de insumos del día",
+          });
+        }
+      }
+      cerrar(true);
+    });
   };
 
   return (
@@ -655,23 +661,23 @@ function FormInsumoHoy({
   const [stock, setStock] = useState("0");
   const [precio, setPrecio] = useState("");
   const [origen, setOrigen] = useState<"municipalidad" | "comprado" | "donado">("comprado");
-  const [guardando, setGuardando] = useState(false);
+  const { pending: guardando, run } = useSubmitLock();
 
-  const guardar = async (e: React.FormEvent) => {
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
-    setGuardando(true);
-    const { data, error } = await supabase.from("insumos").insert({
-      comedor_id: comedorId,
-      nombre: nombre.trim(),
-      unidad,
-      stock_actual: Number(stock) || 0,
-      consumo_diario_promedio: 0,
-      precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
-      origen,
-    }).select("id,nombre,unidad,stock_actual,consumo_diario_promedio,precio_referencial").single();
-    setGuardando(false);
-    if (error) { alert(error.message); return; }
-    alCrear(data);
+    void run(async () => {
+      const { data, error } = await supabase.from("insumos").insert({
+        comedor_id: comedorId,
+        nombre: nombre.trim(),
+        unidad,
+        stock_actual: Number(stock) || 0,
+        consumo_diario_promedio: 0,
+        precio_referencial: origen === "comprado" && precio ? Number(precio) : null,
+        origen,
+      }).select("id,nombre,unidad,stock_actual,consumo_diario_promedio,precio_referencial").single();
+      if (error) { alert(error.message); return; }
+      alCrear(data);
+    });
   };
 
   return (
@@ -731,24 +737,24 @@ function ConsumoModal({ insumos, cerrar }: { insumos: any[]; cerrar: (guardo: bo
   const [cant, setCant] = useState<Record<string, string>>(() =>
     Object.fromEntries(insumos.map((i) => [i.id, String(i.consumo_diario_promedio ?? 0)]))
   );
-  const [guardando, setGuardando] = useState(false);
-  const guardar = async () => {
-    setGuardando(true);
-    const movimientos: any[] = [];
-    const updates: any[] = [];
-    for (const i of insumos) {
-      const c = Number(cant[i.id]);
-      if (!c || c <= 0) continue;
-      movimientos.push({ insumo_id: i.id, tipo: "salida", cantidad: c, nota: "Consumo del día" });
-      const nuevo = Math.max(0, Number(i.stock_actual) - c);
-      updates.push(supabase.from("insumos").update({ stock_actual: nuevo }).eq("id", i.id));
-    }
-    if (movimientos.length === 0) { setGuardando(false); cerrar(false); return; }
-    const { error } = await supabase.from("movimientos_insumo").insert(movimientos);
-    if (error) { setGuardando(false); alert(error.message); return; }
-    await Promise.all(updates);
-    setGuardando(false);
-    cerrar(true);
+  const { pending: guardando, run } = useSubmitLock();
+  const guardar = () => {
+    void run(async () => {
+      const movimientos: any[] = [];
+      const updates: any[] = [];
+      for (const i of insumos) {
+        const c = Number(cant[i.id]);
+        if (!c || c <= 0) continue;
+        movimientos.push({ insumo_id: i.id, tipo: "salida", cantidad: c, nota: "Consumo del día" });
+        const nuevo = Math.max(0, Number(i.stock_actual) - c);
+        updates.push(supabase.from("insumos").update({ stock_actual: nuevo }).eq("id", i.id));
+      }
+      if (movimientos.length === 0) { cerrar(false); return; }
+      const { error } = await supabase.from("movimientos_insumo").insert(movimientos);
+      if (error) { alert(error.message); return; }
+      await Promise.all(updates);
+      cerrar(true);
+    });
   };
   return (
     <div className="fixed inset-0 bg-[rgba(7,34,73,0.55)] z-50 flex items-end sm:items-center justify-center p-6" onClick={() => cerrar(false)}>

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import { subirFoto } from "@/lib/subirFoto";
+import { useSubmitLock } from "@/lib/submit-lock";
 import logoOllita from "@/assets/logo-ollita.svg";
 
 export const Route = createFileRoute("/comedor/$id")({
@@ -309,7 +310,7 @@ function FormularioReserva({ menu, comedor, cerrar, confirmar }: any) {
   const [dni, setDni] = useState("");
   const [cantidad, setCantidad] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [enviando, setEnviando] = useState(false);
+  const { pending: enviando, run } = useSubmitLock();
   const [comprobante, setComprobante] = useState<File | null>(null);
   const [verificando, setVerificando] = useState(false);
   const camaraRef = useRef<HTMLInputElement>(null);
@@ -354,7 +355,7 @@ function FormularioReserva({ menu, comedor, cerrar, confirmar }: any) {
     setNombre(fila.nombre_completo as string);
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (padron.estado === "sin_verificar") {
       setError("Primero verifica tu DNI");
@@ -377,35 +378,34 @@ function FormularioReserva({ menu, comedor, cerrar, confirmar }: any) {
       setError("No hay tantas raciones disponibles");
       return;
     }
-    setEnviando(true);
-    const codigo = generarCodigo();
-    let comprobanteUrl: string | null = null;
-    if (comprobante) {
-      try {
-        comprobanteUrl = await subirFoto(comprobante, "pagos");
-      } catch {
-        setEnviando(false);
-        setError("No pudimos subir la captura. Intenta de nuevo o aparta sin captura.");
+    void run(async () => {
+      const codigo = generarCodigo();
+      let comprobanteUrl: string | null = null;
+      if (comprobante) {
+        try {
+          comprobanteUrl = await subirFoto(comprobante, "pagos");
+        } catch {
+          setError("No pudimos subir la captura. Intenta de nuevo o aparta sin captura.");
+          return;
+        }
+      }
+      const { error: err } = await supabase.from("reservas").insert({
+        menu_id: menu.id,
+        comedor_id: comedor.id,
+        codigo,
+        nombre_comensal: nombre.trim(),
+        telefono: telefono || null,
+        dni,
+        cantidad,
+        comprobante_url: comprobanteUrl,
+        beneficiario_id: padron.estado === "encontrado" ? padron.id : null,
+      });
+      if (err) {
+        setError(err.message);
         return;
       }
-    }
-    const { error: err } = await supabase.from("reservas").insert({
-      menu_id: menu.id,
-      comedor_id: comedor.id,
-      codigo,
-      nombre_comensal: nombre.trim(),
-      telefono: telefono || null,
-      dni,
-      cantidad,
-      comprobante_url: comprobanteUrl,
-      beneficiario_id: padron.estado === "encontrado" ? padron.id : null,
+      confirmar(codigo);
     });
-    setEnviando(false);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    confirmar(codigo);
   };
 
   const aviso =

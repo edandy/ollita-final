@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { emailDeDni, claveDePin, esDni, validarPin } from "@/lib/dni-cuenta";
+import { requireKitchenManager } from "@/lib/supervisor.functions";
 
 type CargoIn =
   | "vicepresidenta"
@@ -28,15 +29,7 @@ export const crearPersonal = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data, context }) => {
-    // Verificar que el llamante sea presidenta del comedor
-    const { data: vinc, error: ev } = await context.supabase
-      .from("usuarios_comedor")
-      .select("cargo, comedor_id")
-      .eq("user_id", context.userId)
-      .eq("comedor_id", data.comedor_id)
-      .maybeSingle();
-    if (ev) throw new Error(ev.message);
-    if (!vinc || vinc.cargo !== "presidenta") throw new Error("Solo la presidenta puede crear cuentas");
+    await requireKitchenManager(context, data.comedor_id);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // Crear usuario auth (auto-confirmado)
@@ -66,13 +59,7 @@ export const eliminarPersonal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { vinculo_id: string; comedor_id: string }) => d)
   .handler(async ({ data, context }) => {
-    const { data: yo } = await context.supabase
-      .from("usuarios_comedor")
-      .select("cargo")
-      .eq("user_id", context.userId)
-      .eq("comedor_id", data.comedor_id)
-      .maybeSingle();
-    if (!yo || yo.cargo !== "presidenta") throw new Error("Solo la presidenta puede eliminar personal");
+    await requireKitchenManager(context, data.comedor_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // No permitir que se elimine a sí misma
     const { data: v } = await supabaseAdmin.from("usuarios_comedor").select("user_id").eq("id", data.vinculo_id).maybeSingle();
@@ -86,13 +73,7 @@ export const actualizarCargo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { vinculo_id: string; comedor_id: string; cargo: CargoIn }) => d)
   .handler(async ({ data, context }) => {
-    const { data: yo } = await context.supabase
-      .from("usuarios_comedor")
-      .select("cargo")
-      .eq("user_id", context.userId)
-      .eq("comedor_id", data.comedor_id)
-      .maybeSingle();
-    if (!yo || yo.cargo !== "presidenta") throw new Error("Solo la presidenta puede cambiar cargos");
+    await requireKitchenManager(context, data.comedor_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("usuarios_comedor").update({ cargo: data.cargo }).eq("id", data.vinculo_id).eq("comedor_id", data.comedor_id);
     if (error) throw new Error(error.message);

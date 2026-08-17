@@ -269,6 +269,7 @@ function Index() {
 function Header() {
   const [user, setUser] = useState<any>(null);
   const [esAdmin, setEsAdmin] = useState(false);
+  const [esSupervisor, setEsSupervisor] = useState(false);
   const [tieneComedor, setTieneComedor] = useState(false);
 
   useEffect(() => {
@@ -284,6 +285,7 @@ function Header() {
   useEffect(() => {
     if (!user) {
       setEsAdmin(false);
+      setEsSupervisor(false);
       setTieneComedor(false);
       return;
     }
@@ -291,9 +293,11 @@ function Header() {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => setEsAdmin(!!data));
+      .then(({ data }) => {
+        const roles = (data ?? []).map((r) => r.role);
+        setEsAdmin(roles.includes("admin"));
+        setEsSupervisor(roles.includes("supervisor"));
+      });
     supabase
       .from("usuarios_comedor")
       .select("id")
@@ -325,7 +329,7 @@ function Header() {
         <div className="flex items-center gap-2.5 flex-wrap justify-end">
           {user ? (
             <>
-              {esAdmin && (
+              {(esAdmin || esSupervisor) && (
                 <Link to="/admin" className={btnPrimary}>
                   Administración
                 </Link>

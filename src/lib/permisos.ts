@@ -33,7 +33,8 @@ export type Accion =
   | "hoy" | "reservas" | "menu" | "insumos" | "caja" | "padron"
   | "cronograma" | "campanas" | "personal" | "perfil";
 
-export function puede(cargo: Cargo | undefined, accion: Accion): boolean {
+export function puede(cargo: Cargo | undefined, accion: Accion, opts?: { isSupervisor?: boolean }): boolean {
+  if (opts?.isSupervisor) return accion !== "campanas";
   if (!cargo) return false;
   // Donaciones / campañas están temporalmente desactivadas
   if (accion === "campanas") return false;

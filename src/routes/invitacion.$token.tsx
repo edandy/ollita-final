@@ -5,6 +5,7 @@ import { verInvitacion, aceptarInvitacion } from "@/lib/invitaciones.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CARGO_LABEL, type Cargo } from "@/lib/permisos";
 import { emailDeDni, claveDePin } from "@/lib/dni-cuenta";
+import { useSubmitLock } from "@/lib/submit-lock";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 
 export const Route = createFileRoute("/invitacion/$token")({
@@ -35,7 +36,7 @@ function InvitacionPage() {
     precio_menu: "2", raciones_diarias: "80", telefono_whatsapp: "",
   });
   const [err, setErr] = useState<string | null>(null);
-  const [guardando, setGuardando] = useState(false);
+  const { pending: guardando, run } = useSubmitLock();
 
   useEffect(() => {
     fnVer({ data: { token } })
@@ -62,30 +63,31 @@ function InvitacionPage() {
     );
   }
 
-  const enviar = async (e: React.FormEvent) => {
-    e.preventDefault(); setErr(null); setGuardando(true);
-    try {
-      await fnAceptar({
-        data: {
-          token, ...v, nombre: v.nombre.trim(),
-          ...(esRegistro
-            ? {
-                olla: {
-                  nombre: o.nombre.trim(), tipo: o.tipo, distrito: o.distrito.trim(), direccion: o.direccion.trim(),
-                  precio_menu: Number(o.precio_menu) || 0, raciones_diarias: Number(o.raciones_diarias) || 0,
-                  telefono_whatsapp: o.telefono_whatsapp.trim(),
-                },
-              }
-            : {}),
-        },
-      });
-      const { error } = await supabase.auth.signInWithPassword({
-        email: emailDeDni(v.dni), password: claveDePin(v.dni, v.pin),
-      });
-      if (error) { navigate({ to: "/auth" }); return; }
-      navigate({ to: "/panel" });
-    } catch (e: any) { setErr(e?.message ?? "No pudimos crear tu cuenta"); }
-    finally { setGuardando(false); }
+  const enviar = (e: React.FormEvent) => {
+    e.preventDefault(); setErr(null);
+    void run(async () => {
+      try {
+        await fnAceptar({
+          data: {
+            token, ...v, nombre: v.nombre.trim(),
+            ...(esRegistro
+              ? {
+                  olla: {
+                    nombre: o.nombre.trim(), tipo: o.tipo, distrito: o.distrito.trim(), direccion: o.direccion.trim(),
+                    precio_menu: Number(o.precio_menu) || 0, raciones_diarias: Number(o.raciones_diarias) || 0,
+                    telefono_whatsapp: o.telefono_whatsapp.trim(),
+                  },
+                }
+              : {}),
+          },
+        });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: emailDeDni(v.dni), password: claveDePin(v.dni, v.pin),
+        });
+        if (error) { navigate({ to: "/auth" }); return; }
+        navigate({ to: "/panel" });
+      } catch (e: any) { setErr(e?.message ?? "No pudimos crear tu cuenta"); }
+    });
   };
 
   return (

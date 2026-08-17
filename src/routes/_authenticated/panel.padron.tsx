@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { ImportarPadron } from "@/components/ImportarPadron";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { UserPlus, Upload, Search, Pencil, Trash2, Download, AlertTriangle } from "lucide-react";
 import {
   PanelShell, PanelBack, PanelTitle, PanelCta, PanelField, PanelOverlay, panelInputClass,
@@ -418,6 +419,7 @@ function FormBenef({
   );
   const [vigencia, setVigencia] = useState(benef?.vigencia_hasta ?? "");
   const [err, setErr] = useState<string | null>(null);
+  const { pending, run } = useSubmitLock();
 
   const cats = [
     { key: "socia_familia" as const, label: "Socia" },
@@ -425,7 +427,7 @@ function FormBenef({
     { key: "caso_social" as const, label: "Caso social" },
   ];
 
-  const guardar = async (e: React.FormEvent) => {
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
     if (!/^\d{8}$/.test(dni)) {
@@ -436,28 +438,30 @@ function FormBenef({
       setErr("El teléfono debe tener 9 dígitos");
       return;
     }
-    const payload: any = {
-      comedor_id: comedorId,
-      nombre_completo: nombre.trim(),
-      dni,
-      telefono: telefono || null,
-      carga_familiar: Math.max(0, Math.trunc(Number(carga) || 0)),
-      categoria,
-      subtipo_caso_social: null,
-      vigencia_hasta: null,
-    };
-    if (categoria === "caso_social") {
-      payload.subtipo_caso_social = subtipo;
-      payload.vigencia_hasta = subtipo === "adulto_mayor" ? null : vigencia || null;
-    }
-    const { error } = benef
-      ? await supabase.from("beneficiarios").update(payload).eq("id", benef.id)
-      : await supabase.from("beneficiarios").insert(payload);
-    if (error) {
-      setErr(error.message);
-      return;
-    }
-    cerrar();
+    void run(async () => {
+      const payload: any = {
+        comedor_id: comedorId,
+        nombre_completo: nombre.trim(),
+        dni,
+        telefono: telefono || null,
+        carga_familiar: Math.max(0, Math.trunc(Number(carga) || 0)),
+        categoria,
+        subtipo_caso_social: null,
+        vigencia_hasta: null,
+      };
+      if (categoria === "caso_social") {
+        payload.subtipo_caso_social = subtipo;
+        payload.vigencia_hasta = subtipo === "adulto_mayor" ? null : vigencia || null;
+      }
+      const { error } = benef
+        ? await supabase.from("beneficiarios").update(payload).eq("id", benef.id)
+        : await supabase.from("beneficiarios").insert(payload);
+      if (error) {
+        setErr(error.message);
+        return;
+      }
+      cerrar();
+    });
   };
 
   return (
@@ -561,12 +565,9 @@ function FormBenef({
           >
             Cancelar
           </button>
-          <button
-            type="submit"
-            className="flex-[1.4] min-h-14 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82]"
-          >
+          <PanelCta type="submit" loading={pending} className="flex-[1.4]">
             Guardar beneficiario
-          </button>
+          </PanelCta>
         </div>
       </form>
     </PanelOverlay>

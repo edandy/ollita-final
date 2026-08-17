@@ -19,6 +19,7 @@ import { Route as CampanaIdRouteImport } from './routes/campana.$id'
 import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/panel'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPanelIndexRouteImport } from './routes/_authenticated/panel.index'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedPanelReservasRouteImport } from './routes/_authenticated/panel.reservas'
 import { Route as AuthenticatedPanelPersonalRouteImport } from './routes/_authenticated/panel.personal'
 import { Route as AuthenticatedPanelPerfilRouteImport } from './routes/_authenticated/panel.perfil'
@@ -29,6 +30,10 @@ import { Route as AuthenticatedPanelInsumosRouteImport } from './routes/_authent
 import { Route as AuthenticatedPanelCronogramaRouteImport } from './routes/_authenticated/panel.cronograma'
 import { Route as AuthenticatedPanelCampanasRouteImport } from './routes/_authenticated/panel.campanas'
 import { Route as AuthenticatedPanelCajaRouteImport } from './routes/_authenticated/panel.caja'
+import { Route as AuthenticatedAdminUsuariosRouteImport } from './routes/_authenticated/admin.usuarios'
+import { Route as AuthenticatedAdminNuevaRouteImport } from './routes/_authenticated/admin.nueva'
+import { Route as AuthenticatedAdminGestoresRouteImport } from './routes/_authenticated/admin.gestores'
+import { Route as AuthenticatedAdminActividadRouteImport } from './routes/_authenticated/admin.actividad'
 
 const DonacionesRoute = DonacionesRouteImport.update({
   id: '/donaciones',
@@ -78,6 +83,11 @@ const AuthenticatedPanelIndexRoute = AuthenticatedPanelIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedPanelRoute,
+} as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
 const AuthenticatedPanelReservasRoute =
   AuthenticatedPanelReservasRouteImport.update({
@@ -136,16 +146,43 @@ const AuthenticatedPanelCajaRoute = AuthenticatedPanelCajaRouteImport.update({
   path: '/caja',
   getParentRoute: () => AuthenticatedPanelRoute,
 } as any)
+const AuthenticatedAdminUsuariosRoute =
+  AuthenticatedAdminUsuariosRouteImport.update({
+    id: '/usuarios',
+    path: '/usuarios',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminNuevaRoute = AuthenticatedAdminNuevaRouteImport.update({
+  id: '/nueva',
+  path: '/nueva',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminGestoresRoute =
+  AuthenticatedAdminGestoresRouteImport.update({
+    id: '/gestores',
+    path: '/gestores',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminActividadRoute =
+  AuthenticatedAdminActividadRouteImport.update({
+    id: '/actividad',
+    path: '/actividad',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/donaciones': typeof DonacionesRoute
-  '/admin': typeof AuthenticatedAdminRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/panel': typeof AuthenticatedPanelRouteWithChildren
   '/campana/$id': typeof CampanaIdRoute
   '/comedor/$id': typeof ComedorIdRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
+  '/admin/actividad': typeof AuthenticatedAdminActividadRoute
+  '/admin/gestores': typeof AuthenticatedAdminGestoresRoute
+  '/admin/nueva': typeof AuthenticatedAdminNuevaRoute
+  '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/panel/caja': typeof AuthenticatedPanelCajaRoute
   '/panel/campanas': typeof AuthenticatedPanelCampanasRoute
   '/panel/cronograma': typeof AuthenticatedPanelCronogramaRoute
@@ -156,16 +193,20 @@ export interface FileRoutesByFullPath {
   '/panel/perfil': typeof AuthenticatedPanelPerfilRoute
   '/panel/personal': typeof AuthenticatedPanelPersonalRoute
   '/panel/reservas': typeof AuthenticatedPanelReservasRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
   '/panel/': typeof AuthenticatedPanelIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/donaciones': typeof DonacionesRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/campana/$id': typeof CampanaIdRoute
   '/comedor/$id': typeof ComedorIdRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
+  '/admin/actividad': typeof AuthenticatedAdminActividadRoute
+  '/admin/gestores': typeof AuthenticatedAdminGestoresRoute
+  '/admin/nueva': typeof AuthenticatedAdminNuevaRoute
+  '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/panel/caja': typeof AuthenticatedPanelCajaRoute
   '/panel/campanas': typeof AuthenticatedPanelCampanasRoute
   '/panel/cronograma': typeof AuthenticatedPanelCronogramaRoute
@@ -176,6 +217,7 @@ export interface FileRoutesByTo {
   '/panel/perfil': typeof AuthenticatedPanelPerfilRoute
   '/panel/personal': typeof AuthenticatedPanelPersonalRoute
   '/panel/reservas': typeof AuthenticatedPanelReservasRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
   '/panel': typeof AuthenticatedPanelIndexRoute
 }
 export interface FileRoutesById {
@@ -184,11 +226,15 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/donaciones': typeof DonacionesRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/panel': typeof AuthenticatedPanelRouteWithChildren
   '/campana/$id': typeof CampanaIdRoute
   '/comedor/$id': typeof ComedorIdRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
+  '/_authenticated/admin/actividad': typeof AuthenticatedAdminActividadRoute
+  '/_authenticated/admin/gestores': typeof AuthenticatedAdminGestoresRoute
+  '/_authenticated/admin/nueva': typeof AuthenticatedAdminNuevaRoute
+  '/_authenticated/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/_authenticated/panel/caja': typeof AuthenticatedPanelCajaRoute
   '/_authenticated/panel/campanas': typeof AuthenticatedPanelCampanasRoute
   '/_authenticated/panel/cronograma': typeof AuthenticatedPanelCronogramaRoute
@@ -199,6 +245,7 @@ export interface FileRoutesById {
   '/_authenticated/panel/perfil': typeof AuthenticatedPanelPerfilRoute
   '/_authenticated/panel/personal': typeof AuthenticatedPanelPersonalRoute
   '/_authenticated/panel/reservas': typeof AuthenticatedPanelReservasRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/panel/': typeof AuthenticatedPanelIndexRoute
 }
 export interface FileRouteTypes {
@@ -212,6 +259,10 @@ export interface FileRouteTypes {
     | '/campana/$id'
     | '/comedor/$id'
     | '/invitacion/$token'
+    | '/admin/actividad'
+    | '/admin/gestores'
+    | '/admin/nueva'
+    | '/admin/usuarios'
     | '/panel/caja'
     | '/panel/campanas'
     | '/panel/cronograma'
@@ -222,16 +273,20 @@ export interface FileRouteTypes {
     | '/panel/perfil'
     | '/panel/personal'
     | '/panel/reservas'
+    | '/admin/'
     | '/panel/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/donaciones'
-    | '/admin'
     | '/campana/$id'
     | '/comedor/$id'
     | '/invitacion/$token'
+    | '/admin/actividad'
+    | '/admin/gestores'
+    | '/admin/nueva'
+    | '/admin/usuarios'
     | '/panel/caja'
     | '/panel/campanas'
     | '/panel/cronograma'
@@ -242,6 +297,7 @@ export interface FileRouteTypes {
     | '/panel/perfil'
     | '/panel/personal'
     | '/panel/reservas'
+    | '/admin'
     | '/panel'
   id:
     | '__root__'
@@ -254,6 +310,10 @@ export interface FileRouteTypes {
     | '/campana/$id'
     | '/comedor/$id'
     | '/invitacion/$token'
+    | '/_authenticated/admin/actividad'
+    | '/_authenticated/admin/gestores'
+    | '/_authenticated/admin/nueva'
+    | '/_authenticated/admin/usuarios'
     | '/_authenticated/panel/caja'
     | '/_authenticated/panel/campanas'
     | '/_authenticated/panel/cronograma'
@@ -264,6 +324,7 @@ export interface FileRouteTypes {
     | '/_authenticated/panel/perfil'
     | '/_authenticated/panel/personal'
     | '/_authenticated/panel/reservas'
+    | '/_authenticated/admin/'
     | '/_authenticated/panel/'
   fileRoutesById: FileRoutesById
 }
@@ -349,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPanelIndexRouteImport
       parentRoute: typeof AuthenticatedPanelRoute
     }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/panel/reservas': {
       id: '/_authenticated/panel/reservas'
       path: '/reservas'
@@ -419,8 +487,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPanelCajaRouteImport
       parentRoute: typeof AuthenticatedPanelRoute
     }
+    '/_authenticated/admin/usuarios': {
+      id: '/_authenticated/admin/usuarios'
+      path: '/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AuthenticatedAdminUsuariosRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/nueva': {
+      id: '/_authenticated/admin/nueva'
+      path: '/nueva'
+      fullPath: '/admin/nueva'
+      preLoaderRoute: typeof AuthenticatedAdminNuevaRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/gestores': {
+      id: '/_authenticated/admin/gestores'
+      path: '/gestores'
+      fullPath: '/admin/gestores'
+      preLoaderRoute: typeof AuthenticatedAdminGestoresRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/actividad': {
+      id: '/_authenticated/admin/actividad'
+      path: '/actividad'
+      fullPath: '/admin/actividad'
+      preLoaderRoute: typeof AuthenticatedAdminActividadRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
+
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminActividadRoute: typeof AuthenticatedAdminActividadRoute
+  AuthenticatedAdminGestoresRoute: typeof AuthenticatedAdminGestoresRoute
+  AuthenticatedAdminNuevaRoute: typeof AuthenticatedAdminNuevaRoute
+  AuthenticatedAdminUsuariosRoute: typeof AuthenticatedAdminUsuariosRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminActividadRoute: AuthenticatedAdminActividadRoute,
+  AuthenticatedAdminGestoresRoute: AuthenticatedAdminGestoresRoute,
+  AuthenticatedAdminNuevaRoute: AuthenticatedAdminNuevaRoute,
+  AuthenticatedAdminUsuariosRoute: AuthenticatedAdminUsuariosRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
 interface AuthenticatedPanelRouteChildren {
   AuthenticatedPanelCajaRoute: typeof AuthenticatedPanelCajaRoute
@@ -454,12 +569,12 @@ const AuthenticatedPanelRouteWithChildren =
   AuthenticatedPanelRoute._addFileChildren(AuthenticatedPanelRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedPanelRoute: typeof AuthenticatedPanelRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedPanelRoute: AuthenticatedPanelRouteWithChildren,
 }
 

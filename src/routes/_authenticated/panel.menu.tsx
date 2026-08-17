@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
+import { useSubmitLock } from "@/lib/submit-lock";
 import { subirFoto } from "@/lib/subirFoto";
 import { Camera, CheckCircle2, Trash2 } from "lucide-react";
 import {
@@ -30,10 +31,10 @@ function MenuPage() {
   const [raciones, setRaciones] = useState("");
   const [foto, setFoto] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
-  const [guardando, setGuardando] = useState(false);
+  const { pending: guardando, run } = useSubmitLock();
   const [ok, setOk] = useState(false);
   const [proximos, setProximos] = useState<any[]>([]);
-  const [repitiendo, setRepitiendo] = useState(false);
+  const { pending: repitiendo, run: runRepetir } = useSubmitLock();
 
   const dias = useMemo(() => {
     const base = new Date();
@@ -73,50 +74,50 @@ function MenuPage() {
     finally { setSubiendo(false); }
   };
 
-  const guardar = async (e: React.FormEvent) => {
+  const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     const r = Math.max(1, Number(raciones) || 0);
     if (!r) { alert("Indica cuántas raciones tendrá el menú."); return; }
-    setGuardando(true);
-    const { error } = await supabase.from("menus").upsert({
-      comedor_id: comedor.id,
-      fecha,
-      nombre_plato: plato.trim(),
-      descripcion: descripcion.trim() || null,
-      precio: Number(precio),
-      publicado: true,
-      foto_url: foto,
-      raciones_disponibles: r,
-    } as any, { onConflict: "comedor_id,fecha" });
-    setGuardando(false);
-    if (error) { alert(error.message); return; }
-    setOk(true); setTimeout(() => setOk(false), 1500);
-    cargar();
-  };
-
-  const repetirSemana = async () => {
-    if (!plato.trim()) { alert("Primero escribe el plato de este día."); return; }
-    if (!confirm("¿Copiar este menú a los próximos 6 días?")) return;
-    setRepitiendo(true);
-    const filas = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(fecha + "T12:00:00");
-      d.setDate(d.getDate() + i + 1);
-      return {
+    void run(async () => {
+      const { error } = await supabase.from("menus").upsert({
         comedor_id: comedor.id,
-        fecha: iso(d),
+        fecha,
         nombre_plato: plato.trim(),
         descripcion: descripcion.trim() || null,
         precio: Number(precio),
         publicado: true,
         foto_url: foto,
-        raciones_disponibles: Math.max(1, Number(raciones) || 1),
-      };
+        raciones_disponibles: r,
+      } as any, { onConflict: "comedor_id,fecha" });
+      if (error) { alert(error.message); return; }
+      setOk(true); setTimeout(() => setOk(false), 1500);
+      await cargar();
     });
-    const { error } = await supabase.from("menus").upsert(filas as any, { onConflict: "comedor_id,fecha" });
-    setRepitiendo(false);
-    if (error) { alert(error.message); return; }
-    setOk(true); setTimeout(() => setOk(false), 1500);
-    cargar();
+  };
+
+  const repetirSemana = () => {
+    if (!plato.trim()) { alert("Primero escribe el plato de este día."); return; }
+    if (!confirm("¿Copiar este menú a los próximos 6 días?")) return;
+    void runRepetir(async () => {
+      const filas = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(fecha + "T12:00:00");
+        d.setDate(d.getDate() + i + 1);
+        return {
+          comedor_id: comedor.id,
+          fecha: iso(d),
+          nombre_plato: plato.trim(),
+          descripcion: descripcion.trim() || null,
+          precio: Number(precio),
+          publicado: true,
+          foto_url: foto,
+          raciones_disponibles: Math.max(1, Number(raciones) || 1),
+        };
+      });
+      const { error } = await supabase.from("menus").upsert(filas as any, { onConflict: "comedor_id,fecha" });
+      if (error) { alert(error.message); return; }
+      setOk(true); setTimeout(() => setOk(false), 1500);
+      await cargar();
+    });
   };
 
   const borrar = async () => {
@@ -132,8 +133,8 @@ function MenuPage() {
         title="Menús"
         subtitle={`${semana} de 7 días con menú publicado`}
         action={
-          <PanelCta variant="secondary" onClick={repetirSemana} disabled={repitiendo} className="min-h-12 px-4 text-[15px]">
-            {repitiendo ? "Copiando…" : "Repetir semana"}
+          <PanelCta variant="secondary" onClick={repetirSemana} loading={repitiendo} loadingText="Copiando…" className="min-h-12 px-4 text-[15px]">
+            Repetir semana
           </PanelCta>
         }
       />
@@ -200,8 +201,8 @@ function MenuPage() {
             </label>
           )}
 
-          <PanelCta type="submit" disabled={guardando || subiendo} className="w-full">
-            {guardando ? "Guardando…" : menu ? "Actualizar menú" : "Publicar menú"}
+          <PanelCta type="submit" loading={guardando} disabled={subiendo} loadingText="Guardando…" className="w-full">
+            {menu ? "Actualizar menú" : "Publicar menú"}
           </PanelCta>
           {menu && (
             <PanelCta type="button" variant="ghost" onClick={borrar} className="w-full min-h-12">
