@@ -197,6 +197,7 @@ export type Database = {
       comedores: {
         Row: {
           activo: boolean
+          code: string
           created_at: string
           descripcion: string | null
           dias_atencion: string[]
@@ -221,6 +222,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          code?: string
           created_at?: string
           descripcion?: string | null
           dias_atencion?: string[]
@@ -245,6 +247,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          code?: string
           created_at?: string
           descripcion?: string | null
           dias_atencion?: string[]

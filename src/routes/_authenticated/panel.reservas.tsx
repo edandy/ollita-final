@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { useSubmitLock } from "@/lib/submit-lock";
@@ -7,7 +8,9 @@ import { Share2, Copy, Plus, Trash2, Search } from "lucide-react";
 import { PanelShell, PanelTitle, PanelWriteGate } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
-import { sortReservasForPanel } from "@/lib/reservas";
+import { sortReservasForPanel, generateReservationCode, retryOnUniqueViolation } from "@/lib/reservas";
+import { ensureComedorCode } from "@/lib/reservas.functions";
+import { todayISO } from "@/lib/dates";
 import { notifyError, notifySuccess } from "@/lib/notify";
 
 export const Route = createFileRoute("/_authenticated/panel/reservas")({
@@ -36,24 +39,36 @@ function ReservasPage() {
 
   const cargar = async () => {
     if (!comedor) return;
-    const hoy = new Date().toISOString().slice(0, 10);
-    const [{ data }, { data: m }] = await Promise.all([
-      supabase
-        .from("reservas")
-        .select("*, menu:menus(fecha), beneficiario:beneficiarios(nombre_completo, categoria)")
-        .eq("comedor_id", comedor.id)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase
-        .from("menus")
-        .select("*")
-        .eq("comedor_id", comedor.id)
-        .eq("fecha", hoy)
-        .eq("publicado", true)
-        .maybeSingle(),
-    ]);
-    setReservas(sortReservasForPanel((data ?? []).filter((r: any) => r.menu?.fecha === hoy)));
-    setMenuHoy(m);
+    const hoy = todayISO();
+    const { data: m, error: menuError } = await supabase
+      .from("menus")
+      .select("*")
+      .eq("comedor_id", comedor.id)
+      .eq("fecha", hoy)
+      .maybeSingle();
+    if (menuError) {
+      void notifyError(friendlySupabaseError(menuError.message));
+      setMenuHoy(null);
+      setReservas([]);
+      return;
+    }
+    setMenuHoy(m?.publicado ? m : null);
+    if (!m) {
+      setReservas([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("reservas")
+      .select("*, beneficiario:beneficiarios(nombre_completo, categoria)")
+      .eq("menu_id", m.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) {
+      void notifyError(friendlySupabaseError(error.message));
+      setReservas([]);
+      return;
+    }
+    setReservas(sortReservasForPanel(data ?? []));
   };
   useEffect(() => {
     cargar();
@@ -101,7 +116,7 @@ function ReservasPage() {
 
   const registrarIngreso = async (r: any) => {
     if (!comedor) return;
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = todayISO();
     const { data: caja } = await supabase
       .from("caja_dias")
       .select("id, cerrado")
@@ -328,6 +343,7 @@ function ReservasPage() {
 }
 
 function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
+  const fnEnsureCode = useServerFn(ensureComedorCode);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [dni, setDni] = useState("");
@@ -379,13 +395,6 @@ function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
     setResultados(lista);
   };
 
-  const generarCodigo = () => {
-    const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let s = "M-";
-    for (let i = 0; i < 3; i++) s += c[Math.floor(Math.random() * c.length)];
-    return s;
-  };
-
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -397,16 +406,29 @@ function RegistrarOrdenManual({ comedor, menu, cerrar, listo }: any) {
     if (cantidad > menu.raciones_disponibles) return setError("No hay tantas raciones disponibles");
 
     void run(async () => {
-      const codigo = generarCodigo();
-      const { error: err } = await supabase.from("reservas").insert({
-        menu_id: menu.id,
-        comedor_id: comedor.id,
-        codigo,
-        nombre_comensal: nombre.trim(),
-        telefono: telefono || null,
-        dni: dni || null,
-        cantidad,
-        beneficiario_id: benef?.id ?? null,
+      let kitchenCode = "";
+      try {
+        const ensured = await fnEnsureCode({ data: { comedor_id: comedor.id } });
+        kitchenCode = ensured.code;
+      } catch (e: any) {
+        const msg = friendlySupabaseError(e?.message ?? "No pudimos generar el código de reserva.");
+        setError(msg);
+        void notifyError(msg);
+        return;
+      }
+      let codigo = "";
+      const { error: err } = await retryOnUniqueViolation(async () => {
+        codigo = generateReservationCode({ kitchenCode, enrolled: !!benef });
+        return supabase.from("reservas").insert({
+          menu_id: menu.id,
+          comedor_id: comedor.id,
+          codigo,
+          nombre_comensal: nombre.trim(),
+          telefono: telefono || null,
+          dni: dni || null,
+          cantidad,
+          beneficiario_id: benef?.id ?? null,
+        });
       });
       if (err) {
         setError(friendlySupabaseError(err.message));

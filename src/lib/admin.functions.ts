@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { emailDeDni, claveDePin, esDni, validarPin } from "@/lib/dni-cuenta";
+import { generateKitchenCode, retryOnUniqueViolation } from "@/lib/reservas";
 
 async function exigirAdmin(context: any) {
   const { data, error } = await context.supabase
@@ -89,13 +90,16 @@ export const adminCrearComedor = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await exigirAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: comedor, error: e1 } = await supabaseAdmin.from("comedores").insert({
-      nombre: data.nombre.trim(),
-      tipo: "comedor",
-      distrito: data.distrito.trim() || "Por completar",
-      direccion: data.direccion.trim() || "Por completar",
-      lat: -12.0464, lng: -77.0428,
-    }).select().single();
+    const { data: comedor, error: e1 } = await retryOnUniqueViolation(() =>
+      supabaseAdmin.from("comedores").insert({
+        nombre: data.nombre.trim(),
+        tipo: "comedor",
+        distrito: data.distrito.trim() || "Por completar",
+        direccion: data.direccion.trim() || "Por completar",
+        lat: -12.0464, lng: -77.0428,
+        code: generateKitchenCode(),
+      }).select().single()
+    );
     if (e1 || !comedor) throw new Error(e1?.message ?? "No se pudo crear el comedor");
 
     if (!data.con_cuenta) return { ok: true, comedor_id: comedor.id, nombre: comedor.nombre };

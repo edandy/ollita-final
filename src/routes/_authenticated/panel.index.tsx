@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CheckCircle2, Share2, AlertTriangle, Pencil, UserPlus, Package, Camera, Trash2,
@@ -11,6 +12,9 @@ import { subirFoto } from "@/lib/subirFoto";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { generateReservationCode, retryOnUniqueViolation } from "@/lib/reservas";
+import { ensureComedorCode } from "@/lib/reservas.functions";
+import { todayISO } from "@/lib/dates";
 import { PanelWriteGate } from "@/components/panel-ui";
 
 export const Route = createFileRoute("/_authenticated/panel/")({
@@ -18,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/panel/")({
   component: Hoy,
 });
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+const hoyISO = () => todayISO();
 const marcaKey = (comedorId: string, paso: string) => `ollita:${comedorId}:${hoyISO()}:${paso}`;
 function leerMarca(comedorId: string | undefined, paso: string) {
   if (!comedorId || typeof window === "undefined") return false;
@@ -32,6 +36,7 @@ function guardarMarca(comedorId: string, paso: string, valor: boolean) {
 
 function Hoy() {
   const { vinculo, comedor, loading } = useMiComedor();
+  const fnEnsureCode = useServerFn(ensureComedorCode);
   const [menu, setMenu] = useState<any>(null);
   const [reservas, setReservas] = useState<any[]>([]);
   const [cronoHoy, setCronoHoy] = useState<any>(null);
@@ -165,18 +170,29 @@ function Hoy() {
     const cant = Math.max(1, Number(entregaCant) || 1);
     if (menu.raciones_disponibles < cant) { void notifyError("No hay raciones disponibles suficientes."); return; }
     void runEntregar(async () => {
-      const codigo = "LIBRE-" + Math.random().toString(36).slice(2, 6).toUpperCase();
-      const { error } = await supabase.from("reservas").insert({
-        menu_id: menu.id,
-        comedor_id: comedor.id,
-        codigo,
-        nombre_comensal: entregaNombre.trim() || null,
-        telefono: null,
-        cantidad: cant,
-        estado: "recogida",
-        dni: benefSel?.dni ?? null,
-        beneficiario_id: benefSel?.id ?? null,
-      } as any);
+      let kitchenCode = "";
+      try {
+        const ensured = await fnEnsureCode({ data: { comedor_id: comedor.id } });
+        kitchenCode = ensured.code;
+      } catch (e: any) {
+        void notifyError(friendlySupabaseError(e?.message ?? "No pudimos generar el código de reserva."));
+        return;
+      }
+      let codigo = "";
+      const { error } = await retryOnUniqueViolation(async () => {
+        codigo = generateReservationCode({ kitchenCode, enrolled: !!benefSel });
+        return supabase.from("reservas").insert({
+          menu_id: menu.id,
+          comedor_id: comedor.id,
+          codigo,
+          nombre_comensal: entregaNombre.trim() || null,
+          telefono: null,
+          cantidad: cant,
+          estado: "recogida",
+          dni: benefSel?.dni ?? null,
+          beneficiario_id: benefSel?.id ?? null,
+        } as any);
+      });
       if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
       void notifySuccess("Se registró la entrega.");
       const { data: caja } = await supabase.from("caja_dias")

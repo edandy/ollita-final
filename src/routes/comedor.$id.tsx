@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import {
   MapPin, ArrowLeft, Clock, Wallet, Navigation, Search,
@@ -8,6 +9,10 @@ import {
 import { z } from "zod";
 import { subirFoto } from "@/lib/subirFoto";
 import { useSubmitLock } from "@/lib/submit-lock";
+import { generateReservationCode, retryOnUniqueViolation } from "@/lib/reservas";
+import { ensureComedorCode } from "@/lib/reservas.functions";
+import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { todayISO } from "@/lib/dates";
 import logoOllita from "@/assets/logo-ollita.svg";
 
 export const Route = createFileRoute("/comedor/$id")({
@@ -59,7 +64,7 @@ function ComedorPage() {
   const [confirmacion, setConfirmacion] = useState<string | null>(null);
 
   const cargar = async () => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = todayISO();
     const [c, m] = await Promise.all([
       supabase.from("comedores").select("*").eq("id", id).single(),
       supabase
@@ -305,6 +310,7 @@ const reservaSchema = z.object({
 });
 
 function FormularioReserva({ menu, comedor, cerrar, confirmar }: any) {
+  const fnEnsureCode = useServerFn(ensureComedorCode);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [dni, setDni] = useState("");
@@ -379,7 +385,14 @@ function FormularioReserva({ menu, comedor, cerrar, confirmar }: any) {
       return;
     }
     void run(async () => {
-      const codigo = generarCodigo();
+      let kitchenCode = "";
+      try {
+        const ensured = await fnEnsureCode({ data: { comedor_id: comedor.id } });
+        kitchenCode = ensured.code;
+      } catch (e: any) {
+        setError(friendlySupabaseError(e?.message ?? "No pudimos generar el código de reserva."));
+        return;
+      }
       let comprobanteUrl: string | null = null;
       if (comprobante) {
         try {
@@ -389,19 +402,26 @@ function FormularioReserva({ menu, comedor, cerrar, confirmar }: any) {
           return;
         }
       }
-      const { error: err } = await supabase.from("reservas").insert({
-        menu_id: menu.id,
-        comedor_id: comedor.id,
-        codigo,
-        nombre_comensal: nombre.trim(),
-        telefono: telefono || null,
-        dni,
-        cantidad,
-        comprobante_url: comprobanteUrl,
-        beneficiario_id: padron.estado === "encontrado" ? padron.id : null,
+      let codigo = "";
+      const { error: err } = await retryOnUniqueViolation(async () => {
+        codigo = generateReservationCode({
+          kitchenCode,
+          enrolled: padron.estado === "encontrado",
+        });
+        return supabase.from("reservas").insert({
+          menu_id: menu.id,
+          comedor_id: comedor.id,
+          codigo,
+          nombre_comensal: nombre.trim(),
+          telefono: telefono || null,
+          dni,
+          cantidad,
+          comprobante_url: comprobanteUrl,
+          beneficiario_id: padron.estado === "encontrado" ? padron.id : null,
+        });
       });
       if (err) {
-        setError(err.message);
+        setError(friendlySupabaseError(err.message));
         return;
       }
       confirmar(codigo);
@@ -638,11 +658,4 @@ function ConfirmacionReserva({
       </div>
     </div>
   );
-}
-
-function generarCodigo() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let s = "M-";
-  for (let i = 0; i < 3; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
 }

@@ -14,6 +14,14 @@
 
 - When asked to push, upload, or “subir” changes, push to **both** remotes: `origin` (`gdavila-nos/la-ollita`) and `vercel` (`edandy/ollita-final`). Do not push to only one unless the user says so.
 
+## Reservation codes
+
+- Each kitchen has a unique 5-character `comedores.code`.
+- Every **new** reservation code is `EXXXXX-YYYY` if the person is on that kitchen’s padrón, and `LXXXXX-YYYY` if they are not.
+- `XXXXX` is the kitchen code; `YYYY` is 4 random characters.
+- Alphabet: `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no I, O, 0, 1).
+- `reservas.codigo` is unique. Do not rewrite existing codes. Generate with `generateReservationCode` in `src/lib/reservas.ts`. Do not use `M-` or `LIBRE-` prefixes.
+
 ## Platform roles
 
 - `admin`: full access to `/admin` (every kitchen and every section).

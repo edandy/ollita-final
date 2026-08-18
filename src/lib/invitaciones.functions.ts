@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { emailDeDni, claveDePin, esDni, validarPin } from "@/lib/dni-cuenta";
+import { generateKitchenCode, retryOnUniqueViolation } from "@/lib/reservas";
 
 const CARGOS = [
   "vicepresidenta", "tesorera", "almacenera", "cocinera",
@@ -113,16 +114,19 @@ export const aceptarInvitacion = createServerFn({ method: "POST" })
     if (!comedorId) {
       const o = data.olla;
       if (!o || !o.nombre.trim()) throw new Error("Pon el nombre de la olla o comedor");
-      const { data: nuevo, error: eC } = await supabaseAdmin.from("comedores").insert({
-        nombre: o.nombre.trim(),
-        tipo: (o.tipo || "comedor") as any,
-        distrito: o.distrito.trim() || "Por completar",
-        direccion: o.direccion.trim() || "Por completar",
-        lat: -12.0464, lng: -77.0428,
-        precio_menu: Number(o.precio_menu) || 0,
-        raciones_diarias: Number(o.raciones_diarias) || 0,
-        telefono_whatsapp: o.telefono_whatsapp?.trim() || null,
-      }).select("id").single();
+      const { data: nuevo, error: eC } = await retryOnUniqueViolation(() =>
+        supabaseAdmin.from("comedores").insert({
+          nombre: o.nombre.trim(),
+          tipo: (o.tipo || "comedor") as any,
+          distrito: o.distrito.trim() || "Por completar",
+          direccion: o.direccion.trim() || "Por completar",
+          lat: -12.0464, lng: -77.0428,
+          precio_menu: Number(o.precio_menu) || 0,
+          raciones_diarias: Number(o.raciones_diarias) || 0,
+          telefono_whatsapp: o.telefono_whatsapp?.trim() || null,
+          code: generateKitchenCode(),
+        }).select("id").single()
+      );
       if (eC || !nuevo) throw new Error(eC?.message ?? "No se pudo crear la olla o comedor");
       comedorId = nuevo.id;
       cargo = "presidenta";
