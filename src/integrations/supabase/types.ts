@@ -717,6 +717,27 @@ export type Database = {
           },
         ]
       }
+      pin_reset_attempts: {
+        Row: {
+          created_at: string
+          dni: string
+          id: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          dni: string
+          id?: string
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          dni?: string
+          id?: string
+          phone?: string
+        }
+        Relationships: []
+      }
       reservas: {
         Row: {
           beneficiario_id: string | null

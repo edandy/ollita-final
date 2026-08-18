@@ -1,12 +1,14 @@
 import { linkRegistroWhatsApp } from "@/lib/contacto";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Store, User } from "lucide-react";
 import { z } from "zod";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 import { emailDeDni, claveDePin, esDni } from "@/lib/dni-cuenta";
 import { useSubmitLock } from "@/lib/submit-lock";
+import { requestPinReset } from "@/lib/pin-reset.functions";
 
 const searchSchema = z.object({
   modo: z.enum(["login", "registro"]).optional(),
@@ -23,7 +25,8 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const [modo, setModo] = useState<"login" | "registro">(search.modo ?? "login");
+  const fnResetPin = useServerFn(requestPinReset);
+  const [modo, setModo] = useState<"login" | "registro" | "pin">(search.modo ?? "login");
   const [tipo, setTipo] = useState<"comedor" | "cliente">(search.tipo ?? "comedor");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +35,8 @@ function AuthPage() {
   const [telefono, setTelefono] = useState("");
   const [dni, setDni] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const [pinEnviado, setPinEnviado] = useState(false);
   const { pending: cargando, run } = useSubmitLock();
 
   useEffect(() => {
@@ -48,6 +53,25 @@ function AuthPage() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setOk(null);
+
+    if (modo === "pin") {
+      if (pinEnviado) return;
+      void run(async () => {
+        try {
+          const r = await fnResetPin({ data: { dni, phone: telefono } });
+          if (r.sent) {
+            setOk(r.message);
+            setPinEnviado(true);
+          } else {
+            setError(r.message);
+          }
+        } catch (e: any) {
+          setError(e?.message ?? "Revisa el DNI y el celular.");
+        }
+      });
+      return;
+    }
 
     if (modo === "login") {
       void run(async () => {
@@ -128,7 +152,7 @@ function AuthPage() {
           <ArrowLeft size={20} />
         </Link>
         <h1 className="text-lg font-bold text-bosque tracking-tight">
-          {modo === "login" ? "Iniciar sesión" : "Crear cuenta"}
+          {modo === "login" ? "Iniciar sesión" : modo === "pin" ? "Recuperar PIN" : "Crear cuenta"}
         </h1>
       </header>
 
@@ -140,11 +164,13 @@ function AuthPage() {
           </div>
           <div className="flex flex-col gap-1">
             <h2 className="text-2xl font-bold text-white tracking-tight">
-              {modo === "login" ? "Hola de nuevo" : tipo === "comedor" ? "Registra tu comedor" : "Crea tu cuenta"}
+              {modo === "login" ? "Hola de nuevo" : modo === "pin" ? "Olvidé mi PIN" : tipo === "comedor" ? "Registra tu comedor" : "Crea tu cuenta"}
             </h2>
             <p className="text-sm text-terracota-suave">
               {modo === "login"
                 ? "Entra para publicar el menú y llevar tu caja."
+                : modo === "pin"
+                  ? "Pon tu DNI y celular. Si coinciden con tu cuenta, te escribimos el PIN nuevo por WhatsApp."
                 : tipo === "comedor"
                   ? "Para socias y dirigentas de comedores u ollas comunes."
                   : "Para apartar raciones y seguir a tus comedores favoritos."}
@@ -184,6 +210,11 @@ function AuthPage() {
               <Campo label="DNI o correo" value={email} onChange={setEmail} placeholder="12345678" />
               <Campo label="PIN o contraseña" value={password} onChange={setPassword} type="password" placeholder="••••••" />
             </>
+          ) : modo === "pin" ? (
+            <>
+              <Campo label="DNI (8 dígitos)" value={dni} onChange={(v: string) => setDni(v.replace(/\D/g, "").slice(0, 8))} placeholder="12345678" />
+              <Campo label="Celular (9 dígitos)" value={telefono} onChange={(v: string) => setTelefono(v.replace(/\D/g, "").slice(0, 9))} placeholder="987654321" />
+            </>
           ) : (
             <>
               <Campo label="Correo" value={email} onChange={setEmail} type="email" placeholder="correo@ejemplo.com" />
@@ -191,27 +222,53 @@ function AuthPage() {
             </>
           )}
           {error && <p className="text-red-600 text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={cargando}
-            className="btn-grande w-full bg-terracota text-white shadow-[0_4px_16px_rgba(38,86,201,0.30)] disabled:opacity-60"
-          >
-            {cargando ? "Espera…" : modo === "login" ? "Entrar" : tipo === "comedor" ? "Crear mi cuenta" : "Crear mi cuenta"}
-          </button>
+          {ok && <p className="text-[#248341] text-sm">{ok}</p>}
+          {modo === "pin" && pinEnviado ? (
+            <button
+              type="button"
+              onClick={() => { setModo("login"); setError(null); setOk(null); setPinEnviado(false); }}
+              className="btn-grande w-full bg-terracota text-white shadow-[0_4px_16px_rgba(38,86,201,0.30)]"
+            >
+              Volver al login
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={cargando}
+              className="btn-grande w-full bg-terracota text-white shadow-[0_4px_16px_rgba(38,86,201,0.30)] disabled:opacity-60"
+            >
+              {cargando
+                ? (modo === "pin" ? "Enviando…" : "Espera…")
+                : modo === "login"
+                  ? "Entrar"
+                  : modo === "pin"
+                    ? "Enviar PIN por WhatsApp"
+                    : "Crear mi cuenta"}
+            </button>
+          )}
         </form>
 
         {modo === "login" ? (
-          <a
-            href={linkRegistroWhatsApp()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full min-h-11 grid place-items-center text-center text-terracota font-semibold text-[15px]"
-          >
-            Aún no tengo cuenta — escríbenos por WhatsApp
-          </a>
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => { setModo("pin"); setError(null); setOk(null); setPinEnviado(false); }}
+              className="w-full min-h-11 grid place-items-center text-center text-terracota font-semibold text-[15px]"
+            >
+              Olvidé mi PIN
+            </button>
+            <a
+              href={linkRegistroWhatsApp()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full min-h-11 grid place-items-center text-center text-terracota font-semibold text-[15px]"
+            >
+              Aún no tengo cuenta — escríbenos por WhatsApp
+            </a>
+          </div>
         ) : (
           <button
-            onClick={() => { setModo("login"); setError(null); }}
+            onClick={() => { setModo("login"); setError(null); setOk(null); setPinEnviado(false); }}
             className="w-full min-h-11 text-center text-terracota font-semibold text-[15px]"
           >
             Ya tengo cuenta, entrar
