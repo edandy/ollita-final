@@ -9,6 +9,7 @@ import { PanelShell, PanelTitle, PanelWriteGate } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { dayTotalsFromTransactions, displayDayTotals, monthProfit } from "@/lib/caja";
 
 export const Route = createFileRoute("/_authenticated/panel/caja")({
   head: () => ({ meta: [{ title: "Caja — La Ollita" }] }),
@@ -26,6 +27,7 @@ type Caja = {
 };
 type Trx = {
   id: string;
+  caja_dia_id: string;
   tipo: "ingreso" | "egreso";
   categoria: string;
   monto: number;
@@ -64,6 +66,7 @@ function CajaPage() {
   const canWrite = useCanWrite();
   const [caja, setCaja] = useState<Caja | null>(null);
   const [trx, setTrx] = useState<Trx[]>([]);
+  const [trxMes, setTrxMes] = useState<Trx[]>([]);
   const [mes, setMes] = useState<Caja[]>([]);
   const { pending: abriendo, run: runAbrir } = useSubmitLock();
   const [capitalInicial, setCapitalInicial] = useState("0");
@@ -78,15 +81,20 @@ function CajaPage() {
       supabase.from("caja_dias").select("*").eq("comedor_id", comedor.id).gte("fecha", inicioMes).order("fecha", { ascending: false }),
     ]);
     setCaja(c as Caja | null);
-    setMes((m as Caja[]) ?? []);
-    if (c) {
+    const diasMes = (m as Caja[]) ?? [];
+    setMes(diasMes);
+    const ids = diasMes.map((d) => d.id);
+    if (ids.length > 0) {
       const { data: t } = await supabase
         .from("transacciones")
         .select("*")
-        .eq("caja_dia_id", (c as any).id)
+        .in("caja_dia_id", ids)
         .order("created_at", { ascending: false });
-      setTrx((t as Trx[]) ?? []);
+      const movimientos = (t as Trx[]) ?? [];
+      setTrxMes(movimientos);
+      setTrx(c ? movimientos.filter((row) => row.caja_dia_id === (c as Caja).id) : []);
     } else {
+      setTrxMes([]);
       setTrx([]);
     }
     if (!c) {
@@ -116,20 +124,24 @@ function CajaPage() {
 
   const cerrar = async () => {
     if (!caja) return;
-    const ing = trx.filter((t) => t.tipo === "ingreso").reduce((s, t) => s + Number(t.monto), 0);
-    const egr = trx.filter((t) => t.tipo === "egreso").reduce((s, t) => s + Number(t.monto), 0);
-    const ganancia = ing - egr;
+    const { total_ingresos, total_egresos, ganancia } = dayTotalsFromTransactions(trx);
     await supabase
       .from("caja_dias")
-      .update({ total_ingresos: ing, total_egresos: egr, ganancia, cerrado: true })
+      .update({ total_ingresos, total_egresos, ganancia, cerrado: true })
       .eq("id", caja.id);
     void notifySuccess("Se cerró la caja del día.");
     cargar();
   };
 
-  const acumuladoMes = useMemo(() => mes.reduce((s, d) => s + Number(d.ganancia ?? 0), 0), [mes]);
-  const ingresosHoy = trx.filter((t) => t.tipo === "ingreso").reduce((s, t) => s + Number(t.monto), 0);
-  const egresosHoy = trx.filter((t) => t.tipo === "egreso").reduce((s, t) => s + Number(t.monto), 0);
+  const trxPorDia = useMemo(() => {
+    const map: Record<string, Trx[]> = {};
+    for (const t of trxMes) {
+      (map[t.caja_dia_id] ??= []).push(t);
+    }
+    return map;
+  }, [trxMes]);
+  const acumuladoMes = useMemo(() => monthProfit(mes, trxPorDia), [mes, trxPorDia]);
+  const { total_ingresos: ingresosHoy, total_egresos: egresosHoy } = dayTotalsFromTransactions(trx);
   const enCaja = caja ? Number(caja.capital_inicial) + ingresosHoy - egresosHoy : 0;
   const fechaHoy = new Date()
     .toLocaleDateString("es-PE", {
@@ -284,7 +296,9 @@ function CajaPage() {
           {mes.length === 0 && (
             <p className="text-[16px] text-[#718096]">Sin registros este mes.</p>
           )}
-          {mes.map((d) => (
+          {mes.map((d) => {
+            const totals = displayDayTotals(d, trxPorDia[d.id] ?? []);
+            return (
             <div key={d.id} className="flex items-center gap-3 flex-wrap">
               <span className="flex-1 min-w-[120px] text-[17px] text-[#475569]">
                 {new Date(d.fecha + "T00:00:00").toLocaleDateString("es-PE", {
@@ -293,13 +307,14 @@ function CajaPage() {
                   month: "short",
                 })}
               </span>
-              <span className="text-[16px] text-[#248341]">+ S/ {Number(d.total_ingresos).toFixed(2)}</span>
-              <span className="text-[16px] text-[#8A5A00]">− S/ {Number(d.total_egresos).toFixed(2)}</span>
+              <span className="text-[16px] text-[#248341]">+ S/ {totals.total_ingresos.toFixed(2)}</span>
+              <span className="text-[16px] text-[#8A5A00]">− S/ {totals.total_egresos.toFixed(2)}</span>
               <span className="text-[17px] font-bold text-[#072249] min-w-[88px] text-right">
-                S/ {Number(d.ganancia).toFixed(2)}
+                S/ {totals.ganancia.toFixed(2)}
               </span>
             </div>
-          ))}
+            );
+          })}
           <div className="border-t border-[#F0F0F0] pt-4 flex items-center justify-between gap-3">
             <span className="text-[17px] font-semibold text-[#072249]">
               Ganancia disponible para compras

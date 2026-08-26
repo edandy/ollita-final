@@ -8,6 +8,12 @@ describe("friendlySupabaseError", () => {
     ).toBe("No tienes permiso para hacer este cambio.");
   });
 
+  it("maps reservation RLS to a generic message, not padrón-only", () => {
+    expect(
+      friendlySupabaseError('new row violates row-level security policy for table "reservas"'),
+    ).toBe("No pudimos completar la reserva. Inténtalo de nuevo.");
+  });
+
   it("maps duplicate key errors", () => {
     expect(friendlySupabaseError("duplicate key value violates unique constraint")).toBe(
       "Ese registro ya existe.",

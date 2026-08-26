@@ -32,6 +32,23 @@ export function generateReservationCode({
   return `${enrolled ? "E" : "L"}${kitchenCode}-${randomChars(4)}`;
 }
 
+export const PUBLIC_RESERVATION_PADRON_ONLY =
+  "Esta olla solo acepta reservas de personas en su padrón. Verificá tu DNI o acercate al local.";
+
+export function canCreatePublicReservation({
+  allowPublicReservations,
+  padronFound,
+  padronActive,
+}: {
+  allowPublicReservations: boolean;
+  padronFound: boolean;
+  padronActive: boolean;
+}) {
+  if (padronFound && !padronActive) return false;
+  if (allowPublicReservations) return true;
+  return padronFound && padronActive;
+}
+
 export function isUniqueViolation(message: string) {
   const text = (message ?? "").toLowerCase();
   return text.includes("duplicate") || text.includes("unique");

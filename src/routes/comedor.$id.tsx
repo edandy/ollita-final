@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 import { subirFoto } from "@/lib/subirFoto";
 import { useSubmitLock } from "@/lib/submit-lock";
-import { generateReservationCode, retryOnUniqueViolation } from "@/lib/reservas";
+import { generateReservationCode, retryOnUniqueViolation, canCreatePublicReservation, PUBLIC_RESERVATION_PADRON_ONLY } from "@/lib/reservas";
 import { ensureComedorCode } from "@/lib/reservas.functions";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
 import { todayISO } from "@/lib/dates";
@@ -206,7 +206,11 @@ function ComedorPage() {
                     Apartar mi ración
                   </button>
                 )}
-                <p className="text-[16px] text-[#718096] text-center">No necesitas cuenta. Solo tu DNI.</p>
+                <p className="text-[16px] text-[#718096] text-center">
+                  {comedor.allow_public_reservations === false
+                    ? "Solo personas en el padrón de esta olla, con su DNI."
+                    : "No necesitas cuenta. Solo tu DNI."}
+                </p>
               </>
             )}
           </section>
@@ -371,6 +375,14 @@ function FormularioReserva({ menu, comedor, cerrar, confirmar }: any) {
       setError("Tu registro en el padrón está inactivo. Acércate al comedor.");
       return;
     }
+    if (!canCreatePublicReservation({
+      allowPublicReservations: comedor.allow_public_reservations !== false,
+      padronFound: padron.estado === "encontrado",
+      padronActive: padron.estado === "encontrado" && padron.activo,
+    })) {
+      setError(PUBLIC_RESERVATION_PADRON_ONLY);
+      return;
+    }
     const parsed = reservaSchema.safeParse({ nombre, telefono, dni, cantidad });
     if (!parsed.success) {
       setError(parsed.error.issues[0]!.message);
@@ -428,194 +440,224 @@ function FormularioReserva({ menu, comedor, cerrar, confirmar }: any) {
     });
   };
 
+  const allowPublic = comedor.allow_public_reservations !== false;
+  const puedeReservar = canCreatePublicReservation({
+    allowPublicReservations: allowPublic,
+    padronFound: padron.estado === "encontrado",
+    padronActive: padron.estado === "encontrado" && padron.activo,
+  });
   const aviso =
     padron.estado === "sin_verificar"
       ? {
-          text: "Verifica tu DNI para saber si el comedor ya te tiene en su padrón.",
+          text: allowPublic
+            ? "Verifica tu DNI para saber si el comedor ya te tiene en su padrón."
+            : "Esta olla solo atiende a su padrón. Verifica tu DNI para apartar.",
           ok: false as const,
           icon: Info,
         }
-      : padron.estado === "encontrado"
+      : padron.estado === "encontrado" && !padron.activo
         ? {
-            text: `Estás en el padrón como ${padron.nombre}. Tu nombre se llena solo.`,
-            ok: true as const,
-            icon: CheckCircle2,
-          }
-        : {
-            text: "No estás en el padrón. Igual puedes apartar tu ración.",
+            text: "Tu registro en el padrón está inactivo. Acércate al comedor.",
             ok: false as const,
             icon: Info,
-          };
+          }
+        : padron.estado === "encontrado"
+          ? {
+              text: `Estás en el padrón como ${padron.nombre}.`,
+              ok: true as const,
+              icon: CheckCircle2,
+            }
+          : allowPublic
+            ? {
+                text: "No estás en el padrón. Igual puedes apartar tu ración.",
+                ok: false as const,
+                icon: Info,
+              }
+            : {
+                text: PUBLIC_RESERVATION_PADRON_ONLY,
+                ok: false as const,
+                icon: Info,
+              };
+  const mostrarFormulario = padron.estado === "sin_verificar" || puedeReservar;
 
   return (
     <div
-      className="fixed inset-0 bg-[rgba(7,34,73,0.55)] z-50 flex items-end sm:items-center justify-center sm:p-8"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(7,34,73,0.55)] sm:items-center sm:p-6"
       onClick={cerrar}
     >
       <div
-        className="bg-white rounded-t-[24px] sm:rounded-[24px] max-w-[540px] w-full p-6 sm:p-7 flex flex-col gap-5 max-h-[92vh] overflow-y-auto shadow-[0_12px_40px_rgba(7,34,73,0.30)]"
+        className="flex max-h-[min(92dvh,720px)] w-full max-w-[520px] flex-col overflow-hidden rounded-t-[24px] bg-white shadow-[0_12px_40px_rgba(7,34,73,0.30)] sm:rounded-[24px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sm:hidden mx-auto h-1.5 w-10 rounded-full bg-[#E0E0E0]" />
-        <div className="flex flex-col gap-1">
-          <h3 className="text-[26px] font-bold tracking-[-0.02em] text-[#072249]">
+        <div className="shrink-0 px-5 pt-3 pb-2 sm:px-6 sm:pt-5">
+          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-[#E0E0E0] sm:hidden" />
+          <h3 className="text-[22px] font-bold tracking-[-0.02em] text-[#072249]">
             Apartar mi ración
           </h3>
-          <p className="text-[17px] text-[#475569]">
-            Te guardamos tu plato. Recógelo antes de las {formatHora(comedor.horario_fin)}.
+          <p className="mt-0.5 text-[15px] text-[#718096]">
+            Recojo hasta las {formatHora(comedor.horario_fin)}.
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <label className="text-[15px] font-semibold text-[#072249]">Tu DNI (8 dígitos)</label>
-            <div className="flex gap-2.5">
-              <input
-                value={dni}
-                onChange={(e) => {
-                  setDni(e.target.value.replace(/\D/g, "").slice(0, 8));
-                  setPadron({ estado: "sin_verificar" });
-                }}
-                className="h-14 flex-1 rounded-xl border border-[#E0E0E0] px-4 text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8] min-w-0"
-                placeholder="12345678"
-                inputMode="numeric"
-                autoFocus
-              />
-              <button
-                type="button"
-                onClick={verificarPadron}
-                disabled={verificando}
-                className="min-h-14 px-5 gap-2 inline-flex items-center rounded-xl bg-[#0F7BA8] text-white text-[16px] font-semibold shrink-0 hover:bg-[#0A5F82] disabled:opacity-60"
-              >
-                <Search size={22} strokeWidth={1.75} />
-                {verificando ? "…" : "Verificar"}
-              </button>
-            </div>
-            <div
-              className={`rounded-xl p-3.5 flex gap-2.5 items-start text-[16px] ${
-                aviso.ok
-                  ? "bg-[rgba(52,168,83,0.12)] text-[#248341]"
-                  : "bg-[#C5EBF9] text-[#072249]"
-              }`}
-            >
-              <aviso.icon size={22} className="shrink-0 mt-0.5" strokeWidth={1.75} />
-              <span className="flex-1">{aviso.text}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[15px] font-semibold text-[#072249]">Tu nombre</label>
-            <input
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              readOnly={padron.estado === "encontrado"}
-              className="h-14 w-full rounded-xl border border-[#E0E0E0] px-4 text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8] read-only:bg-[#FCFCFC] read-only:text-[#072249]"
-              placeholder={padron.estado === "encontrado" ? padron.nombre : "Ej. María Quispe"}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[15px] font-semibold text-[#072249]">
-              Tu celular <span className="font-normal text-[#718096]">· opcional</span>
-            </label>
-            <input
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value.replace(/\D/g, "").slice(0, 9))}
-              className="h-14 w-full rounded-xl border border-[#E0E0E0] px-4 text-[17px] text-[#111111] outline-none focus:border-[#0F7BA8]"
-              placeholder="987654321"
-              inputMode="numeric"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-[15px] font-semibold text-[#072249]">Cantidad de raciones</label>
-            <div className="bg-[#F0F0F0] rounded-2xl px-[18px] py-3.5 flex items-center gap-[18px]">
-              <button
-                type="button"
-                onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                className="size-[52px] rounded-full bg-white text-[#0F7BA8] text-[26px] font-semibold shadow-[0_2px_6px_rgba(7,34,73,0.10)]"
-              >
-                −
-              </button>
-              <span className="text-[28px] font-bold text-[#072249] min-w-[44px] text-center">
-                {cantidad}
-              </span>
-              <button
-                type="button"
-                onClick={() => setCantidad(Math.min(maxPorReserva, cantidad + 1))}
-                className="size-[52px] rounded-full bg-white text-[#0F7BA8] text-[26px] font-semibold shadow-[0_2px_6px_rgba(7,34,73,0.10)]"
-              >
-                +
-              </button>
-              <div className="flex-1 flex flex-col gap-0.5 items-end">
-                <span className="text-[15px] text-[#718096]">Máx. {maxPorReserva} por persona</span>
-                <span className="text-[22px] font-bold text-[#072249]">
-                  Total S/ {(cantidad * Number(menu.precio)).toFixed(2)}
-                </span>
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-2 sm:px-6">
+            <div className="flex flex-col gap-3.5 pb-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[14px] font-semibold text-[#072249]">Tu DNI (8 dígitos)</label>
+                <div className="flex gap-2">
+                  <input
+                    value={dni}
+                    onChange={(e) => {
+                      setDni(e.target.value.replace(/\D/g, "").slice(0, 8));
+                      setPadron({ estado: "sin_verificar" });
+                      setError(null);
+                    }}
+                    className="h-12 min-w-0 flex-1 rounded-xl border border-[#E0E0E0] px-3.5 text-[16px] text-[#111111] outline-none focus:border-[#0F7BA8]"
+                    placeholder="12345678"
+                    inputMode="numeric"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={verificarPadron}
+                    disabled={verificando}
+                    className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-[#0F7BA8] px-4 text-[15px] font-semibold text-white hover:bg-[#0A5F82] disabled:opacity-60"
+                  >
+                    <Search size={18} strokeWidth={1.75} />
+                    {verificando ? "…" : "Verificar"}
+                  </button>
+                </div>
+                <div
+                  className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-[14px] leading-snug ${
+                    aviso.ok
+                      ? "bg-[rgba(52,168,83,0.12)] text-[#248341]"
+                      : "bg-[#C5EBF9] text-[#072249]"
+                  }`}
+                >
+                  <aviso.icon size={18} className="mt-0.5 shrink-0" strokeWidth={1.75} />
+                  <span className="flex-1">{aviso.text}</span>
+                </div>
               </div>
+
+              {mostrarFormulario && (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[14px] font-semibold text-[#072249]">Tu nombre</label>
+                    <input
+                      value={nombre}
+                      onChange={(e) => setNombre(e.target.value)}
+                      readOnly={padron.estado === "encontrado"}
+                      className="h-12 w-full rounded-xl border border-[#E0E0E0] px-3.5 text-[16px] text-[#111111] outline-none focus:border-[#0F7BA8] read-only:bg-[#FCFCFC] read-only:text-[#072249]"
+                      placeholder={padron.estado === "encontrado" ? padron.nombre : "Ej. María Quispe"}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[14px] font-semibold text-[#072249]">
+                      Celular <span className="font-normal text-[#718096]">opcional</span>
+                    </label>
+                    <input
+                      value={telefono}
+                      onChange={(e) => setTelefono(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                      className="h-12 w-full rounded-xl border border-[#E0E0E0] px-3.5 text-[16px] text-[#111111] outline-none focus:border-[#0F7BA8]"
+                      placeholder="987654321"
+                      inputMode="numeric"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[14px] font-semibold text-[#072249]">Raciones</label>
+                    <div className="flex items-center gap-3 rounded-2xl bg-[#F0F0F0] px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setCantidad(Math.max(1, cantidad - 1))}
+                        className="size-11 rounded-full bg-white text-[22px] font-semibold text-[#0F7BA8] shadow-[0_2px_6px_rgba(7,34,73,0.10)]"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[36px] text-center text-[24px] font-bold text-[#072249]">
+                        {cantidad}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCantidad(Math.min(maxPorReserva, cantidad + 1))}
+                        className="size-11 rounded-full bg-white text-[22px] font-semibold text-[#0F7BA8] shadow-[0_2px_6px_rgba(7,34,73,0.10)]"
+                      >
+                        +
+                      </button>
+                      <div className="ml-auto flex flex-col items-end">
+                        <span className="text-[12px] text-[#718096]">Máx. {maxPorReserva}</span>
+                        <span className="text-[18px] font-bold text-[#072249]">
+                          S/ {(cantidad * Number(menu.precio)).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[14px] font-semibold text-[#072249]">
+                      Captura del pago <span className="font-normal text-[#718096]">opcional</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => camaraRef.current?.click()}
+                        className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#A2D9F2] bg-[#FCFCFC] text-[14px] font-semibold text-[#0F7BA8]"
+                      >
+                        <Camera size={18} strokeWidth={1.75} /> Foto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => galeriaRef.current?.click()}
+                        className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#A2D9F2] bg-[#FCFCFC] text-[14px] font-semibold text-[#0F7BA8]"
+                      >
+                        <ImagePlus size={18} strokeWidth={1.75} /> Galería
+                      </button>
+                    </div>
+                    <input
+                      ref={camaraRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
+                    />
+                    <input
+                      ref={galeriaRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
+                    />
+                    {comprobante ? (
+                      <p className="text-[13px] font-semibold text-[#0F7BA8]">Adjuntaste: {comprobante.name}</p>
+                    ) : (
+                      <p className="text-[13px] text-[#718096]">También puedes pagar al recoger.</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-[15px] font-semibold text-[#072249]">
-              Captura del pago <span className="font-normal text-[#718096]">· opcional</span>
-            </label>
+          <div className="shrink-0 border-t border-[#F0F0F0] bg-white px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
+            {error && <p className="mb-2 text-[14px] text-[#C5352B]">{error}</p>}
             <div className="flex gap-2.5">
               <button
                 type="button"
-                onClick={() => camaraRef.current?.click()}
-                className="flex-1 min-h-14 gap-2 inline-flex items-center justify-center rounded-xl border border-dashed border-[#A2D9F2] bg-[#FCFCFC] text-[#0F7BA8] text-[16px] font-semibold hover:border-[#0F7BA8]"
+                onClick={cerrar}
+                className="h-12 flex-1 rounded-full border border-[#E0E0E0] bg-white text-[16px] font-semibold text-[#072249]"
               >
-                <Camera size={22} strokeWidth={1.75} /> Tomar foto
+                Cancelar
               </button>
               <button
-                type="button"
-                onClick={() => galeriaRef.current?.click()}
-                className="flex-1 min-h-14 gap-2 inline-flex items-center justify-center rounded-xl border border-dashed border-[#A2D9F2] bg-[#FCFCFC] text-[#0F7BA8] text-[16px] font-semibold hover:border-[#0F7BA8]"
+                type="submit"
+                disabled={enviando || (padron.estado !== "sin_verificar" && !puedeReservar)}
+                className="h-12 flex-[1.5] rounded-full bg-[#0F7BA8] text-[16px] font-semibold text-white shadow-[0_4px_16px_rgba(15,123,168,0.30)] disabled:opacity-60"
               >
-                <ImagePlus size={22} strokeWidth={1.75} /> Subir captura
+                {enviando ? "Apartando…" : "Confirmar"}
               </button>
             </div>
-            <input
-              ref={camaraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
-            />
-            <input
-              ref={galeriaRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
-            />
-            {comprobante && (
-              <p className="text-[15px] text-[#0F7BA8] font-semibold">Adjuntaste: {comprobante.name}</p>
-            )}
-            <p className="text-[16px] text-[#718096]">
-              Si ya pagaste por Yape o Plin, adjunta la captura. También puedes pagar al recoger.
-            </p>
-          </div>
-
-          {error && <p className="text-[15px] text-[#C5352B]">{error}</p>}
-
-          <div className="flex gap-3 mt-1">
-            <button
-              type="button"
-              onClick={cerrar}
-              className="flex-1 min-h-[58px] rounded-full bg-white border border-[#E0E0E0] text-[#072249] text-[17px] font-semibold hover:border-[#9197B3]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={enviando}
-              className="flex-[1.4] min-h-[58px] rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-60"
-            >
-              {enviando ? "Apartando…" : "Confirmar reserva"}
-            </button>
           </div>
         </form>
       </div>

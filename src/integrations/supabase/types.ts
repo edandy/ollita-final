@@ -197,6 +197,7 @@ export type Database = {
       comedores: {
         Row: {
           activo: boolean
+          allow_public_reservations: boolean
           code: string
           created_at: string
           descripcion: string | null
@@ -222,6 +223,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          allow_public_reservations?: boolean
           code?: string
           created_at?: string
           descripcion?: string | null
@@ -247,6 +249,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          allow_public_reservations?: boolean
           code?: string
           created_at?: string
           descripcion?: string | null
@@ -992,6 +995,10 @@ export type Database = {
         Returns: boolean
       }
       is_full_supervisor_of: { Args: { _comedor_id: string }; Returns: boolean }
+      dni_in_active_padron: {
+        Args: { _comedor_id: string; _dni: string }
+        Returns: boolean
+      }
       verificar_padron: {
         Args: { _comedor_id: string; _dni: string }
         Returns: {

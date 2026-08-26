@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CODE_ALPHABET,
+  canCreatePublicReservation,
   generateKitchenCode,
   generateReservationCode,
   isKitchenCode,
@@ -61,6 +62,47 @@ describe("generateReservationCode", () => {
   it("uses L plus the kitchen code for walk-in people", () => {
     const code = generateReservationCode({ kitchenCode: "7K3P2", enrolled: false });
     expect(code).toMatch(new RegExp(`^L7K3P2-[${CODE_ALPHABET}]{4}$`));
+  });
+});
+
+describe("canCreatePublicReservation", () => {
+  it("allows anyone when the kitchen accepts public reservations", () => {
+    expect(canCreatePublicReservation({
+      allowPublicReservations: true,
+      padronFound: false,
+      padronActive: false,
+    })).toBe(true);
+    expect(canCreatePublicReservation({
+      allowPublicReservations: true,
+      padronFound: true,
+      padronActive: true,
+    })).toBe(true);
+  });
+
+  it("still blocks inactive padron entries even if public reservations are on", () => {
+    expect(canCreatePublicReservation({
+      allowPublicReservations: true,
+      padronFound: true,
+      padronActive: false,
+    })).toBe(false);
+  });
+
+  it("allows only active padron members when public reservations are off", () => {
+    expect(canCreatePublicReservation({
+      allowPublicReservations: false,
+      padronFound: true,
+      padronActive: true,
+    })).toBe(true);
+    expect(canCreatePublicReservation({
+      allowPublicReservations: false,
+      padronFound: false,
+      padronActive: false,
+    })).toBe(false);
+    expect(canCreatePublicReservation({
+      allowPublicReservations: false,
+      padronFound: true,
+      padronActive: false,
+    })).toBe(false);
   });
 });
 

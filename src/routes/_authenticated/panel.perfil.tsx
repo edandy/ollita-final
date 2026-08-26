@@ -12,6 +12,7 @@ import {
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/panel/perfil")({
   head: () => ({ meta: [{ title: "Perfil del comedor — La Ollita" }] }),
@@ -42,6 +43,7 @@ function PerfilPage() {
         precio_menu: Number(f.precio_menu),
         precio_menu_publico: f.precio_menu_publico === "" || f.precio_menu_publico == null ? null : Number(f.precio_menu_publico),
         max_raciones_por_reserva: Number(f.max_raciones_por_reserva),
+        allow_public_reservations: f.allow_public_reservations !== false,
         horario_inicio: f.horario_inicio, horario_fin: f.horario_fin,
         lat: Number(f.lat), lng: Number(f.lng),
         foto_url: f.foto_url ?? null,
@@ -134,14 +136,36 @@ function PerfilPage() {
             <PanelField label="Precio menú (S/)">
               <input type="number" step="0.50" className={panelInputClass()} value={f.precio_menu} onChange={upd("precio_menu")} readOnly={!canWrite} />
             </PanelField>
-            <PanelField label="Precio al publico">
-              <input type="number" step="0.50" className={panelInputClass()} value={f.precio_menu_publico ?? ""} onChange={upd("precio_menu_publico")} readOnly={!canWrite} />
-            </PanelField>
           </div>
 
           <PanelField label="Máximo raciones por reserva">
             <input type="number" min="1" max="50" className={panelInputClass()} value={f.max_raciones_por_reserva} onChange={upd("max_raciones_por_reserva")} readOnly={!canWrite} />
           </PanelField>
+          <PanelField label="Reservas del público">
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-[#E0E0E0] px-4 py-3.5">
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[15px] font-semibold text-[#072249]">
+                  Aceptar reservas de quienes no están en el padrón
+                </span>
+                {f.allow_public_reservations === false && (
+                  <span className="text-[14px] text-[#718096]">
+                    Solo podrán apartar personas del padrón, con su DNI.
+                  </span>
+                )}
+              </div>
+              <Switch
+                checked={f.allow_public_reservations !== false}
+                onCheckedChange={(v) => setF({ ...f, allow_public_reservations: v })}
+                disabled={!canWrite}
+                className="mt-0.5 data-[state=checked]:bg-[#0F7BA8]"
+              />
+            </div>
+          </PanelField>
+          {f.allow_public_reservations !== false && (
+            <PanelField label="Precio al publico">
+              <input type="number" step="0.50" className={panelInputClass()} value={f.precio_menu_publico ?? ""} onChange={upd("precio_menu_publico")} readOnly={!canWrite} />
+            </PanelField>
+          )}
           <PanelField label="WhatsApp (9 dígitos)">
             <input className={panelInputClass()} value={f.telefono_whatsapp ?? ""} onChange={upd("telefono_whatsapp")} readOnly={!canWrite} />
           </PanelField>

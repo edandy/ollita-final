@@ -1,6 +1,9 @@
 export function friendlySupabaseError(message: string): string {
   const text = (message ?? "").toLowerCase();
   if (text.includes("row-level security") || text.includes("violates row-level security")) {
+    if (text.includes('"reservas"') || text.includes("table reservas")) {
+      return "No pudimos completar la reserva. Inténtalo de nuevo.";
+    }
     return "No tienes permiso para hacer este cambio.";
   }
   if (text.includes("duplicate") || text.includes("unique")) {
