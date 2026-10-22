@@ -23,6 +23,7 @@ export type Database = {
           created_at: string
           direccion: string | null
           dni: string
+          foto_url: string | null
           id: string
           nombre_completo: string
           subtipo_caso_social:
@@ -39,6 +40,7 @@ export type Database = {
           created_at?: string
           direccion?: string | null
           dni: string
+          foto_url?: string | null
           id?: string
           nombre_completo: string
           subtipo_caso_social?:
@@ -55,6 +57,7 @@ export type Database = {
           created_at?: string
           direccion?: string | null
           dni?: string
+          foto_url?: string | null
           id?: string
           nombre_completo?: string
           subtipo_caso_social?:

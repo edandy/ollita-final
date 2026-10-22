@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  beneficiaryRow,
   canRemoveBeneficiary,
   friendlyCreateBeneficiaryError,
   padronStaffCargo,
@@ -30,6 +31,7 @@ describe("validateCreateBeneficiary", () => {
       cargaFamiliar: 2,
       socialSubtype: null,
       validUntil: null,
+      photoUrl: null,
       comedor_id: "olla-1",
     });
   });
@@ -87,6 +89,15 @@ describe("validateCreateBeneficiary", () => {
       validUntil: null,
     });
   });
+
+  it("treats photoUrl as optional and trims it", () => {
+    expect(validateCreateBeneficiary(valid).photoUrl).toBeNull();
+    expect(validateCreateBeneficiary({ ...valid, photoUrl: "  " }).photoUrl).toBeNull();
+    expect(validateCreateBeneficiary({
+      ...valid,
+      photoUrl: " https://cdn.example/padron/a.jpg ",
+    }).photoUrl).toBe("https://cdn.example/padron/a.jpg");
+  });
 });
 
 describe("validateUpdateBeneficiary", () => {
@@ -97,6 +108,31 @@ describe("validateUpdateBeneficiary", () => {
       nombre: "María Quispe",
       dni: "12345678",
     });
+  });
+
+  it("keeps or clears the photo URL", () => {
+    const { pin: _pin, ...withoutPin } = valid;
+    expect(validateUpdateBeneficiary({ ...withoutPin, id: "b-1" }).photoUrl).toBeNull();
+    expect(validateUpdateBeneficiary({
+      ...withoutPin,
+      id: "b-1",
+      photoUrl: "https://cdn.example/padron/b.jpg",
+    }).photoUrl).toBe("https://cdn.example/padron/b.jpg");
+  });
+});
+
+describe("beneficiaryRow", () => {
+  it("maps photoUrl onto foto_url for insert", () => {
+    const withPhoto = validateCreateBeneficiary({
+      ...valid,
+      photoUrl: "https://cdn.example/padron/a.jpg",
+    });
+    expect(beneficiaryRow(withPhoto).foto_url).toBe("https://cdn.example/padron/a.jpg");
+    expect(beneficiaryRow(validateCreateBeneficiary(valid)).foto_url).toBeNull();
+  });
+
+  it("omits foto_url when importing so existing photos stay", () => {
+    expect(beneficiaryRow(validateCreateBeneficiary(valid), { includePhoto: false })).not.toHaveProperty("foto_url");
   });
 });
 

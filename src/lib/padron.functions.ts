@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { claveDePin, emailDeDni } from "@/lib/dni-cuenta";
 import {
+  beneficiaryRow,
   friendlyCreateBeneficiaryError,
   resolveKitchenAccountAction,
   staffToPadronRow,
@@ -152,21 +153,6 @@ async function ensureKitchenAccount(admin: AdminClient, data: CreateBeneficiaryI
   return { account: "created" as const };
 }
 
-function beneficiaryRow(data: CreateBeneficiaryInput, extra?: { direccion?: string | null; activo?: boolean }) {
-  return {
-    comedor_id: data.comedor_id,
-    nombre_completo: data.nombre,
-    dni: data.dni,
-    telefono: data.phone,
-    carga_familiar: data.cargaFamiliar,
-    categoria: data.categoria,
-    subtipo_caso_social: data.socialSubtype,
-    vigencia_hasta: data.validUntil,
-    direccion: extra?.direccion ?? null,
-    activo: extra?.activo ?? true,
-  };
-}
-
 export const crearBeneficiario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: {
@@ -178,6 +164,7 @@ export const crearBeneficiario = createServerFn({ method: "POST" })
     carga?: string | number;
     subtipo?: string;
     vigencia?: string;
+    photoUrl?: string | null;
     comedor_id: string;
   }) => validateCreateBeneficiary(d))
   .handler(async ({ data, context }) => {
@@ -248,7 +235,7 @@ export const importarPadron = createServerFn({ method: "POST" })
       }
 
       const { error } = await supabaseAdmin.from("beneficiarios").upsert(
-        beneficiaryRow(parsed, { direccion: row.direccion ?? null, activo: row.activo ?? true }),
+        beneficiaryRow(parsed, { direccion: row.direccion ?? null, activo: row.activo ?? true, includePhoto: false }),
         { onConflict: "comedor_id,dni" },
       );
       if (error) {

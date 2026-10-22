@@ -5,12 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { ImportarPadron } from "@/components/ImportarPadron";
 import { useSubmitLock } from "@/lib/submit-lock";
-import { UserPlus, Upload, Search, Pencil, Trash2, Download, AlertTriangle } from "lucide-react";
+import { UserPlus, Upload, Search, Pencil, Trash2, Download, AlertTriangle, Camera } from "lucide-react";
 import {
   PanelShell, PanelBack, PanelTitle, PanelCta, PanelField, PanelOverlay, panelInputClass, PanelWriteGate,
 } from "@/components/panel-ui";
 import { useCanWrite } from "@/lib/kitchen-access-context";
 import { notifyError, notifySuccess } from "@/lib/notify";
+import { subirFoto } from "@/lib/subirFoto";
 import { crearBeneficiario, sincronizarEquipoEnPadron } from "@/lib/padron.functions";
 import {
   canRemoveBeneficiary,
@@ -36,6 +37,7 @@ type B = {
   vigencia_hasta: string | null;
   activo: boolean;
   carga_familiar: number;
+  foto_url: string | null;
 };
 
 const CAT_LABEL: Record<string, string> = {
@@ -332,9 +334,17 @@ function PadronPage() {
               key={b.id}
               className="bg-white border border-[#E0E0E0] rounded-[18px] px-5 py-[18px] flex items-center gap-3.5 flex-wrap"
             >
-              <div className="size-12 rounded-full bg-[#C5EBF9] text-[#072249] grid place-items-center text-[17px] font-bold shrink-0">
-                {iniciales(b.nombre_completo)}
-              </div>
+              {b.foto_url ? (
+                <img
+                  src={b.foto_url}
+                  alt=""
+                  className="size-12 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="size-12 rounded-full bg-[#C5EBF9] text-[#072249] grid place-items-center text-[17px] font-bold shrink-0">
+                  {iniciales(b.nombre_completo)}
+                </div>
+              )}
               <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                 <span className="text-[19px] font-bold text-[#072249] truncate leading-tight">
                   {b.nombre_completo}
@@ -468,9 +478,27 @@ function FormBenef({
   );
   const [vigencia, setVigencia] = useState(benef?.vigencia_hasta ?? "");
   const [pin, setPin] = useState("");
+  const [fotoUrl, setFotoUrl] = useState<string | null>(benef?.foto_url ?? null);
+  const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const { pending, run } = useSubmitLock();
   const fnCrear = useServerFn(crearBeneficiario);
+
+  const onFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setSubiendo(true);
+    setErr(null);
+    try {
+      setFotoUrl(await subirFoto(file, `comedor/${comedorId}/padron`));
+    } catch {
+      setErr("No pudimos subir la foto");
+      void notifyError("No pudimos subir la foto");
+    } finally {
+      setSubiendo(false);
+    }
+  };
 
   const cats = [
     { key: "socia_familia" as const, label: "Socia" },
@@ -480,6 +508,7 @@ function FormBenef({
 
   const guardar = (e: React.FormEvent) => {
     e.preventDefault();
+    if (subiendo) return;
     setErr(null);
     try {
       if (benef) {
@@ -492,6 +521,7 @@ function FormBenef({
           carga,
           subtipo,
           vigencia,
+          photoUrl: fotoUrl,
           comedor_id: comedorId,
         });
         void run(async () => {
@@ -503,6 +533,7 @@ function FormBenef({
             categoria: data.categoria,
             subtipo_caso_social: data.socialSubtype,
             vigencia_hasta: data.validUntil,
+            foto_url: data.photoUrl,
           }).eq("id", data.id);
           if (error) {
             setErr(friendlyCreateBeneficiaryError(error.message));
@@ -524,6 +555,7 @@ function FormBenef({
         carga,
         subtipo,
         vigencia,
+        photoUrl: fotoUrl,
         comedor_id: comedorId,
       });
       void run(async () => {
@@ -538,6 +570,7 @@ function FormBenef({
               carga: data.cargaFamiliar,
               subtipo: data.socialSubtype ?? "",
               vigencia: data.validUntil ?? "",
+              photoUrl: data.photoUrl,
               comedor_id: data.comedor_id,
             },
           });
@@ -584,6 +617,25 @@ function FormBenef({
             className={panelInputClass()}
             placeholder="Ej. María Quispe"
           />
+        </PanelField>
+        <PanelField label="Foto (opcional)">
+          {fotoUrl ? (
+            <div className="relative">
+              <img src={fotoUrl} alt="" className="w-full h-44 object-cover rounded-[16px]" />
+              <button
+                type="button"
+                onClick={() => setFotoUrl(null)}
+                className="absolute top-2 right-2 bg-white/90 rounded-full size-11 grid place-items-center text-[#C5352B] border border-[#E0E0E0]"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-[#E0E0E0] text-[#0F7BA8] font-semibold rounded-[16px] min-h-[88px] cursor-pointer hover:bg-terracota-suave">
+              <Camera size={18} /> <span>{subiendo ? "Subiendo…" : "Tomar o subir foto"}</span>
+              <input type="file" accept="image/*" className="hidden" onChange={onFoto} disabled={subiendo} />
+            </label>
+          )}
         </PanelField>
         {!benef && (
           <PanelField label="PIN (4 a 8 números)" note="Lo usa para entrar a la plataforma.">
@@ -669,7 +721,13 @@ function FormBenef({
           >
             Cancelar
           </button>
-          <PanelCta type="submit" loading={pending} className="flex-[1.4]">
+          <PanelCta
+            type="submit"
+            loading={pending}
+            disabled={subiendo}
+            loadingText={benef ? "Guardando…" : "Creando…"}
+            className="flex-[1.4]"
+          >
             Guardar beneficiario
           </PanelCta>
         </div>

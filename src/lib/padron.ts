@@ -16,6 +16,7 @@ export type CreateBeneficiaryInput = {
   cargaFamiliar: number;
   socialSubtype: SocialSubtype | null;
   validUntil: string | null;
+  photoUrl: string | null;
   comedor_id: string;
 };
 
@@ -44,6 +45,11 @@ function parseCarga(value: string | number | undefined) {
   return n;
 }
 
+function parsePhotoUrl(value: string | null | undefined) {
+  const url = value?.trim() || null;
+  return url;
+}
+
 function parseSharedFields(input: {
   nombre: string;
   dni: string;
@@ -52,6 +58,7 @@ function parseSharedFields(input: {
   carga?: string | number;
   subtipo?: string;
   vigencia?: string;
+  photoUrl?: string | null;
   comedor_id: string;
 }) {
   const nombre = input.nombre.trim();
@@ -86,6 +93,7 @@ function parseSharedFields(input: {
     cargaFamiliar: parseCarga(input.carga),
     socialSubtype,
     validUntil,
+    photoUrl: parsePhotoUrl(input.photoUrl),
     comedor_id: input.comedor_id,
   };
 }
@@ -99,6 +107,7 @@ export function validateCreateBeneficiary(input: {
   carga?: string | number;
   subtipo?: string;
   vigencia?: string;
+  photoUrl?: string | null;
   comedor_id: string;
 }): CreateBeneficiaryInput {
   return {
@@ -116,6 +125,7 @@ export function validateUpdateBeneficiary(input: {
   carga?: string | number;
   subtipo?: string;
   vigencia?: string;
+  photoUrl?: string | null;
   comedor_id: string;
 }): UpdateBeneficiaryInput {
   if (!input.id) throw new Error("Falta la persona a editar");
@@ -131,6 +141,26 @@ export function resolveKitchenAccountAction(facts: KitchenAccountFacts): Kitchen
   if (facts.memberInOtherKitchen) return "skip";
   if (facts.hasAuthUser) return "link";
   return "create";
+}
+
+export function beneficiaryRow(
+  data: CreateBeneficiaryInput,
+  extra?: { direccion?: string | null; activo?: boolean; includePhoto?: boolean },
+) {
+  const row = {
+    comedor_id: data.comedor_id,
+    nombre_completo: data.nombre,
+    dni: data.dni,
+    telefono: data.phone,
+    carga_familiar: data.cargaFamiliar,
+    categoria: data.categoria,
+    subtipo_caso_social: data.socialSubtype,
+    vigencia_hasta: data.validUntil,
+    direccion: extra?.direccion ?? null,
+    activo: extra?.activo ?? true,
+  };
+  if (extra?.includePhoto === false) return row;
+  return { ...row, foto_url: data.photoUrl };
 }
 
 export function staffToPadronRow(input: {
