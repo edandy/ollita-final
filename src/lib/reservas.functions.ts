@@ -3,7 +3,7 @@ import { friendlySupabaseError } from "@/lib/supabase-errors";
 import { generateKitchenCode, isKitchenCode, isUniqueViolation } from "@/lib/reservas";
 
 export const ensureComedorCode = createServerFn({ method: "POST" })
-  .inputValidator((d: { comedor_id: string }) => {
+  .validator((d: { comedor_id: string }) => {
     if (!d.comedor_id) throw new Error("Falta la olla");
     return d;
   })

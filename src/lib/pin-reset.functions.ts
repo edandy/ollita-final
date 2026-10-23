@@ -12,7 +12,7 @@ import {
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
 
 export const requestPinReset = createServerFn({ method: "POST" })
-  .inputValidator((d: { dni: string; phone: string }) => validatePinResetRequest(d))
+  .validator((d: { dni: string; phone: string }) => validatePinResetRequest(d))
   .handler(async ({ data }) => {
     const { dni, phone } = data;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

@@ -155,7 +155,7 @@ async function ensureKitchenAccount(admin: AdminClient, data: CreateBeneficiaryI
 
 export const crearBeneficiario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: {
+  .validator((d: {
     nombre: string;
     dni: string;
     pin: string;
@@ -191,7 +191,7 @@ export const crearBeneficiario = createServerFn({ method: "POST" })
 
 export const importarPadron = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: {
+  .validator((d: {
     comedor_id: string;
     rows: Array<{
       nombre: string;
@@ -260,7 +260,7 @@ export const importarPadron = createServerFn({ method: "POST" })
 
 export const sincronizarEquipoEnPadron = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { comedor_id: string }) => {
+  .validator((d: { comedor_id: string }) => {
     if (!d.comedor_id) throw new Error("Falta la olla");
     return d;
   })

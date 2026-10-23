@@ -15,7 +15,7 @@ function nuevoToken() {
 
 export const crearInvitacion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { comedor_id: string; cargo: CargoIn; nombre?: string; email?: string }) => {
+  .validator((d: { comedor_id: string; cargo: CargoIn; nombre?: string; email?: string }) => {
     if (!CARGOS.includes(d.cargo)) throw new Error("Cargo inválido");
     return d;
   })
@@ -39,7 +39,7 @@ export const crearInvitacion = createServerFn({ method: "POST" })
 
 export const listarInvitaciones = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { comedor_id: string }) => d)
+  .validator((d: { comedor_id: string }) => d)
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("invitaciones")
@@ -52,7 +52,7 @@ export const listarInvitaciones = createServerFn({ method: "POST" })
 
 export const eliminarInvitacion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => d)
+  .validator((d: { id: string }) => d)
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("invitaciones").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -61,7 +61,7 @@ export const eliminarInvitacion = createServerFn({ method: "POST" })
 
 // Público: consultar una invitación por su enlace
 export const verInvitacion = createServerFn({ method: "POST" })
-  .inputValidator((d: { token: string }) => {
+  .validator((d: { token: string }) => {
     if (!d.token || d.token.length < 20) throw new Error("Enlace inválido");
     return d;
   })
@@ -87,7 +87,7 @@ export const verInvitacion = createServerFn({ method: "POST" })
 
 // Público: aceptar la invitación creando la cuenta
 export const aceptarInvitacion = createServerFn({ method: "POST" })
-  .inputValidator((d: {
+  .validator((d: {
     token: string; nombre: string; pin: string; telefono: string; dni: string;
     olla?: { nombre: string; tipo: string; distrito: string; direccion: string; precio_menu: number; raciones_diarias: number; telefono_whatsapp?: string };
   }) => {

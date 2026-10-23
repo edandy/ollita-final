@@ -64,7 +64,7 @@ export const adminListarComedores = createServerFn({ method: "GET" })
 
 export const adminActivarComedor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { comedor_id: string; activo: boolean }) => d)
+  .validator((d: { comedor_id: string; activo: boolean }) => d)
   .handler(async ({ data, context }) => {
     await exigirAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -75,7 +75,7 @@ export const adminActivarComedor = createServerFn({ method: "POST" })
 
 export const adminCrearComedor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: {
+  .validator((d: {
     nombre: string; distrito: string; direccion: string;
     presidenta: string; dni: string; pin: string; telefono?: string; con_cuenta?: boolean;
   }) => {
@@ -128,7 +128,7 @@ export const adminCrearComedor = createServerFn({ method: "POST" })
 
 export const adminActualizarComedor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: {
+  .validator((d: {
     comedor_id: string; nombre: string; tipo: string; distrito: string; direccion: string;
     precio_menu: number; raciones_diarias: number; telefono_whatsapp?: string; yape_numero?: string;
   }) => {
@@ -156,7 +156,7 @@ export const adminActualizarComedor = createServerFn({ method: "POST" })
 // Enlace abierto: quien lo reciba registra los datos de su olla y se crea sola.
 export const adminCrearEnlaceRegistro = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { nombre?: string } | undefined) => d ?? {})
+  .validator((d: { nombre?: string } | undefined) => d ?? {})
   .handler(async ({ data, context }) => {
     await exigirAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -179,7 +179,7 @@ const CARGOS_ADMIN = [
 
 export const adminCrearInvitacion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { comedor_id: string; cargo: string; nombre?: string; email?: string }) => {
+  .validator((d: { comedor_id: string; cargo: string; nombre?: string; email?: string }) => {
     if (!(CARGOS_ADMIN as readonly string[]).includes(d.cargo)) throw new Error("Cargo inválido");
     return d;
   })
@@ -201,7 +201,7 @@ export const adminCrearInvitacion = createServerFn({ method: "POST" })
 
 export const adminEliminarComedor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { comedor_id: string }) => d)
+  .validator((d: { comedor_id: string }) => d)
   .handler(async ({ data, context }) => {
     await exigirAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -232,7 +232,7 @@ export const adminListarUsuarios = createServerFn({ method: "GET" })
 // Uso diario: una fila por olla/comedor, una columna por día.
 export const adminActividadDiaria = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { dias?: number } | undefined) => ({ dias: Math.min(Math.max(d?.dias ?? 14, 1), 31) }))
+  .validator((d: { dias?: number } | undefined) => ({ dias: Math.min(Math.max(d?.dias ?? 14, 1), 31) }))
   .handler(async ({ data, context }) => {
     await exigirAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -280,7 +280,7 @@ export const adminActividadDiaria = createServerFn({ method: "POST" })
 
 export const adminCrearUsuario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { comedor_id: string; nombre: string; cargo: string; dni: string; pin: string; telefono?: string }) => {
+  .validator((d: { comedor_id: string; nombre: string; cargo: string; dni: string; pin: string; telefono?: string }) => {
     if (!d.comedor_id) throw new Error("Elige la olla o comedor");
     if (!d.nombre.trim()) throw new Error("Pon el nombre");
     if (!(CARGOS_ADMIN as readonly string[]).includes(d.cargo)) throw new Error("Cargo inválido");
@@ -315,7 +315,7 @@ export const adminCrearUsuario = createServerFn({ method: "POST" })
 
 export const adminCambiarCargo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { vinculo_id: string; cargo: string }) => {
+  .validator((d: { vinculo_id: string; cargo: string }) => {
     if (!(CARGOS_ADMIN as readonly string[]).includes(d.cargo)) throw new Error("Cargo inválido");
     return d;
   })
@@ -329,7 +329,7 @@ export const adminCambiarCargo = createServerFn({ method: "POST" })
 
 export const adminEliminarUsuario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { vinculo_id: string; borrar_cuenta?: boolean }) => d)
+  .validator((d: { vinculo_id: string; borrar_cuenta?: boolean }) => d)
   .handler(async ({ data, context }) => {
     await exigirAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

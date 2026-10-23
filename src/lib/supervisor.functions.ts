@@ -145,7 +145,7 @@ export const listPlatformUsers = createServerFn({ method: "GET" })
 
 export const createPlatformUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: {
+  .validator((d: {
     role: string;
     name: string;
     dni: string;
@@ -232,7 +232,7 @@ async function clearSupervisorRecords(supabaseAdmin: any, userId: string) {
 
 export const updatePlatformUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: {
+  .validator((d: {
     userId: string;
     name: string;
     role: string;
@@ -310,7 +310,7 @@ export const updatePlatformUser = createServerFn({ method: "POST" })
 
 export const deletePlatformUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { userId: string; deleteAccount?: boolean }) => d)
+  .validator((d: { userId: string; deleteAccount?: boolean }) => d)
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     if (data.userId === context.userId) throw new Error("No puedes eliminar tu propia cuenta");

@@ -49,7 +49,7 @@ function bytesDeBase64(b64: string) {
 
 export const pedirUrlSubida = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(inputSchema)
+  .validator(inputSchema)
   .handler(async ({ data }) => {
     validarArchivo(data.contentType, data.size);
     const carpeta = sanitizarCarpeta(data.carpeta);
@@ -67,7 +67,7 @@ export const pedirUrlSubida = createServerFn({ method: "POST" })
   });
 
 export const pedirUrlSubidaPago = createServerFn({ method: "POST" })
-  .inputValidator(inputSchema)
+  .validator(inputSchema)
   .handler(async ({ data }) => {
     validarArchivo(data.contentType, data.size);
     const carpeta = sanitizarCarpeta(data.carpeta);

@@ -16,7 +16,7 @@ type CargoIn = StaffCargo;
 // Solo la presidenta del comedor puede crear nuevas cuentas de personal.
 export const crearPersonal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { dni: string; pin: string; nombre: string; cargo: CargoIn; comedor_id: string; telefono?: string }) => {
+  .validator((d: { dni: string; pin: string; nombre: string; cargo: CargoIn; comedor_id: string; telefono?: string }) => {
     return validateCreateStaff(d);
   })
   .handler(async ({ data, context }) => {
@@ -54,7 +54,7 @@ export const crearPersonal = createServerFn({ method: "POST" })
 
 export const asignarPersonalDesdePadron = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { beneficiary_id: string; cargo: AssignableStaffCargo; comedor_id: string }) => {
+  .validator((d: { beneficiary_id: string; cargo: AssignableStaffCargo; comedor_id: string }) => {
     return validateAssignStaffFromPadron(d);
   })
   .handler(async ({ data, context }) => {
@@ -94,7 +94,7 @@ export const asignarPersonalDesdePadron = createServerFn({ method: "POST" })
 
 export const eliminarPersonal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { vinculo_id: string; comedor_id: string }) => d)
+  .validator((d: { vinculo_id: string; comedor_id: string }) => d)
   .handler(async ({ data, context }) => {
     await requireKitchenManager(context, data.comedor_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -118,7 +118,7 @@ export const eliminarPersonal = createServerFn({ method: "POST" })
 
 export const actualizarCargo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { vinculo_id: string; comedor_id: string; cargo: CargoIn }) => d)
+  .validator((d: { vinculo_id: string; comedor_id: string; cargo: CargoIn }) => d)
   .handler(async ({ data, context }) => {
     await requireKitchenManager(context, data.comedor_id);
     if (data.cargo === "socia") throw new Error("Elige un cargo");
