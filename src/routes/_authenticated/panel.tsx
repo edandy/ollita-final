@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { Home, Wallet, ClipboardList, Menu as MenuIcon, LogOut } from "lucide-react";
+import { Home, Wallet, UtensilsCrossed, Menu as MenuIcon, LogOut } from "lucide-react";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { puede, type Accion, type Cargo } from "@/lib/permisos";
 import { SUPERVISOR_KITCHEN_STORAGE_KEY, ADMIN_KITCHEN_STORAGE_KEY } from "@/lib/access";
@@ -129,8 +129,8 @@ function BottomNav({ cargo, isSupervisor }: { cargo: Cargo; isSupervisor?: boole
   const items = (
     [
       { to: "/panel", label: "Inicio", icon: Home, exact: true, key: "hoy" as Accion },
+      { to: "/panel/entregas", label: "Entregas", icon: UtensilsCrossed, key: "entregas" as Accion },
       { to: "/panel/caja", label: "Caja", icon: Wallet, key: "caja" as Accion },
-      { to: "/panel/reservas", label: "Reservas", icon: ClipboardList, key: "reservas" as Accion },
     ] as const
   ).filter((i) => puede(cargo, i.key, { isSupervisor }));
 

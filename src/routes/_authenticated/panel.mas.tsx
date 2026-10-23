@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  Calendar, Users, Store, LogOut, Package, UserCog, ShieldCheck, Utensils, ChevronRight,
+  Calendar, Users, Store, LogOut, Package, UserCog, ShieldCheck, Utensils, ClipboardList, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "@tanstack/react-router";
@@ -32,6 +32,7 @@ function MasPage() {
 
   const items: { to: any; icon: any; label: string; desc: string; key: Accion }[] = (
     [
+      { to: "/panel/reservas", icon: ClipboardList, label: "Reservas", desc: "Pedidos del día y entregas pendientes", key: "reservas" as Accion },
       { to: "/panel/menu", icon: Utensils, label: "Menús de la semana", desc: "Publica y programa los platos", key: "menu" as Accion },
       { to: "/panel/cronograma", icon: Calendar, label: "Cronograma de turnos", desc: "Quién cocina cada día", key: "cronograma" as Accion },
       { to: "/panel/insumos", icon: Package, label: "Almacén", desc: "Insumos, stock y plan de compra", key: "insumos" as Accion },

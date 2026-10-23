@@ -27,6 +27,7 @@ import { Route as AuthenticatedPanelPadronRouteImport } from './routes/_authenti
 import { Route as AuthenticatedPanelMenuRouteImport } from './routes/_authenticated/panel.menu'
 import { Route as AuthenticatedPanelMasRouteImport } from './routes/_authenticated/panel.mas'
 import { Route as AuthenticatedPanelInsumosRouteImport } from './routes/_authenticated/panel.insumos'
+import { Route as AuthenticatedPanelEntregasRouteImport } from './routes/_authenticated/panel.entregas'
 import { Route as AuthenticatedPanelCronogramaRouteImport } from './routes/_authenticated/panel.cronograma'
 import { Route as AuthenticatedPanelCampanasRouteImport } from './routes/_authenticated/panel.campanas'
 import { Route as AuthenticatedPanelCajaRouteImport } from './routes/_authenticated/panel.caja'
@@ -129,6 +130,12 @@ const AuthenticatedPanelInsumosRoute =
     path: '/insumos',
     getParentRoute: () => AuthenticatedPanelRoute,
   } as any)
+const AuthenticatedPanelEntregasRoute =
+  AuthenticatedPanelEntregasRouteImport.update({
+    id: '/entregas',
+    path: '/entregas',
+    getParentRoute: () => AuthenticatedPanelRoute,
+  } as any)
 const AuthenticatedPanelCronogramaRoute =
   AuthenticatedPanelCronogramaRouteImport.update({
     id: '/cronograma',
@@ -186,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/panel/caja': typeof AuthenticatedPanelCajaRoute
   '/panel/campanas': typeof AuthenticatedPanelCampanasRoute
   '/panel/cronograma': typeof AuthenticatedPanelCronogramaRoute
+  '/panel/entregas': typeof AuthenticatedPanelEntregasRoute
   '/panel/insumos': typeof AuthenticatedPanelInsumosRoute
   '/panel/mas': typeof AuthenticatedPanelMasRoute
   '/panel/menu': typeof AuthenticatedPanelMenuRoute
@@ -210,6 +218,7 @@ export interface FileRoutesByTo {
   '/panel/caja': typeof AuthenticatedPanelCajaRoute
   '/panel/campanas': typeof AuthenticatedPanelCampanasRoute
   '/panel/cronograma': typeof AuthenticatedPanelCronogramaRoute
+  '/panel/entregas': typeof AuthenticatedPanelEntregasRoute
   '/panel/insumos': typeof AuthenticatedPanelInsumosRoute
   '/panel/mas': typeof AuthenticatedPanelMasRoute
   '/panel/menu': typeof AuthenticatedPanelMenuRoute
@@ -238,6 +247,7 @@ export interface FileRoutesById {
   '/_authenticated/panel/caja': typeof AuthenticatedPanelCajaRoute
   '/_authenticated/panel/campanas': typeof AuthenticatedPanelCampanasRoute
   '/_authenticated/panel/cronograma': typeof AuthenticatedPanelCronogramaRoute
+  '/_authenticated/panel/entregas': typeof AuthenticatedPanelEntregasRoute
   '/_authenticated/panel/insumos': typeof AuthenticatedPanelInsumosRoute
   '/_authenticated/panel/mas': typeof AuthenticatedPanelMasRoute
   '/_authenticated/panel/menu': typeof AuthenticatedPanelMenuRoute
@@ -266,6 +276,7 @@ export interface FileRouteTypes {
     | '/panel/caja'
     | '/panel/campanas'
     | '/panel/cronograma'
+    | '/panel/entregas'
     | '/panel/insumos'
     | '/panel/mas'
     | '/panel/menu'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/panel/caja'
     | '/panel/campanas'
     | '/panel/cronograma'
+    | '/panel/entregas'
     | '/panel/insumos'
     | '/panel/mas'
     | '/panel/menu'
@@ -317,6 +329,7 @@ export interface FileRouteTypes {
     | '/_authenticated/panel/caja'
     | '/_authenticated/panel/campanas'
     | '/_authenticated/panel/cronograma'
+    | '/_authenticated/panel/entregas'
     | '/_authenticated/panel/insumos'
     | '/_authenticated/panel/mas'
     | '/_authenticated/panel/menu'
@@ -466,6 +479,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPanelInsumosRouteImport
       parentRoute: typeof AuthenticatedPanelRoute
     }
+    '/_authenticated/panel/entregas': {
+      id: '/_authenticated/panel/entregas'
+      path: '/entregas'
+      fullPath: '/panel/entregas'
+      preLoaderRoute: typeof AuthenticatedPanelEntregasRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
     '/_authenticated/panel/cronograma': {
       id: '/_authenticated/panel/cronograma'
       path: '/cronograma'
@@ -541,6 +561,7 @@ interface AuthenticatedPanelRouteChildren {
   AuthenticatedPanelCajaRoute: typeof AuthenticatedPanelCajaRoute
   AuthenticatedPanelCampanasRoute: typeof AuthenticatedPanelCampanasRoute
   AuthenticatedPanelCronogramaRoute: typeof AuthenticatedPanelCronogramaRoute
+  AuthenticatedPanelEntregasRoute: typeof AuthenticatedPanelEntregasRoute
   AuthenticatedPanelInsumosRoute: typeof AuthenticatedPanelInsumosRoute
   AuthenticatedPanelMasRoute: typeof AuthenticatedPanelMasRoute
   AuthenticatedPanelMenuRoute: typeof AuthenticatedPanelMenuRoute
@@ -555,6 +576,7 @@ const AuthenticatedPanelRouteChildren: AuthenticatedPanelRouteChildren = {
   AuthenticatedPanelCajaRoute: AuthenticatedPanelCajaRoute,
   AuthenticatedPanelCampanasRoute: AuthenticatedPanelCampanasRoute,
   AuthenticatedPanelCronogramaRoute: AuthenticatedPanelCronogramaRoute,
+  AuthenticatedPanelEntregasRoute: AuthenticatedPanelEntregasRoute,
   AuthenticatedPanelInsumosRoute: AuthenticatedPanelInsumosRoute,
   AuthenticatedPanelMasRoute: AuthenticatedPanelMasRoute,
   AuthenticatedPanelMenuRoute: AuthenticatedPanelMenuRoute,

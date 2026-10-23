@@ -424,6 +424,80 @@ export type Database = {
           },
         ]
       }
+      debts: {
+        Row: {
+          amount: number
+          beneficiario_id: string | null
+          comedor_id: string
+          created_at: string
+          dni: string | null
+          id: string
+          paid_at: string | null
+          paid_transaction_id: string | null
+          person_name: string
+          reservation_id: string | null
+          servings: number
+          status: string
+        }
+        Insert: {
+          amount: number
+          beneficiario_id?: string | null
+          comedor_id: string
+          created_at?: string
+          dni?: string | null
+          id?: string
+          paid_at?: string | null
+          paid_transaction_id?: string | null
+          person_name: string
+          reservation_id?: string | null
+          servings: number
+          status?: string
+        }
+        Update: {
+          amount?: number
+          beneficiario_id?: string | null
+          comedor_id?: string
+          created_at?: string
+          dni?: string | null
+          id?: string
+          paid_at?: string | null
+          paid_transaction_id?: string | null
+          person_name?: string
+          reservation_id?: string | null
+          servings?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debts_beneficiario_id_fkey"
+            columns: ["beneficiario_id"]
+            isOneToOne: false
+            referencedRelation: "beneficiarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debts_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debts_paid_transaction_id_fkey"
+            columns: ["paid_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transacciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debts_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       favoritos: {
         Row: {
           comedor_id: string
@@ -883,6 +957,7 @@ export type Database = {
           id: string
           monto: number
           nota: string | null
+          payment_method: string | null
           tipo: Database["public"]["Enums"]["transaccion_tipo"]
         }
         Insert: {
@@ -893,6 +968,7 @@ export type Database = {
           id?: string
           monto: number
           nota?: string | null
+          payment_method?: string | null
           tipo: Database["public"]["Enums"]["transaccion_tipo"]
         }
         Update: {
@@ -903,6 +979,7 @@ export type Database = {
           id?: string
           monto?: number
           nota?: string | null
+          payment_method?: string | null
           tipo?: Database["public"]["Enums"]["transaccion_tipo"]
         }
         Relationships: [

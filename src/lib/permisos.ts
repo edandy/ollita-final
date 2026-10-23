@@ -30,7 +30,7 @@ export function esSoloLectura(cargo: Cargo | undefined): boolean {
 
 // Capacidades por cargo. Presidenta y Vicepresidenta pueden todo.
 export type Accion =
-  | "hoy" | "reservas" | "menu" | "insumos" | "caja" | "padron"
+  | "hoy" | "reservas" | "entregas" | "menu" | "insumos" | "caja" | "padron"
   | "cronograma" | "campanas" | "personal" | "perfil";
 
 export function puede(cargo: Cargo | undefined, accion: Accion, opts?: { isSupervisor?: boolean }): boolean {
@@ -42,13 +42,13 @@ export function puede(cargo: Cargo | undefined, accion: Accion, opts?: { isSuper
 
   const tabla: Record<Exclude<Cargo, "presidenta" | "vicepresidenta">, Accion[]> = {
     cocinera: ["hoy", "menu"],
-    tesorera: ["hoy", "reservas", "caja", "padron", "cronograma"],
+    tesorera: ["hoy", "reservas", "entregas", "caja", "padron", "cronograma"],
     almacenera: ["hoy", "insumos"],
     // Solo visualizan: ven todo menos personal/perfil.
-    socia: ["hoy", "menu", "reservas", "caja", "padron", "cronograma", "insumos"],
-    fiscal: ["hoy", "menu", "reservas", "caja", "padron", "cronograma", "insumos"],
-    vocal: ["hoy", "menu", "reservas", "caja", "padron", "cronograma", "insumos"],
-    secretaria: ["hoy", "menu", "reservas", "caja", "padron", "cronograma", "insumos"],
+    socia: ["hoy", "menu", "reservas", "entregas", "caja", "padron", "cronograma", "insumos"],
+    fiscal: ["hoy", "menu", "reservas", "entregas", "caja", "padron", "cronograma", "insumos"],
+    vocal: ["hoy", "menu", "reservas", "entregas", "caja", "padron", "cronograma", "insumos"],
+    secretaria: ["hoy", "menu", "reservas", "entregas", "caja", "padron", "cronograma", "insumos"],
   };
   return tabla[cargo].includes(accion);
 }
