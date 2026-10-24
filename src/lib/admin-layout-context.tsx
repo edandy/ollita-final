@@ -15,6 +15,7 @@ export type KitchenRow = {
   socias: number;
   beneficiarios: number;
   reservas: number;
+  groupIds: string[];
 };
 
 export type AdminConfirm = {

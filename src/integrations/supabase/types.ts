@@ -527,6 +527,57 @@ export type Database = {
           },
         ]
       }
+      group_kitchens: {
+        Row: {
+          comedor_id: string
+          created_at: string
+          group_id: string
+        }
+        Insert: {
+          comedor_id: string
+          created_at?: string
+          group_id: string
+        }
+        Update: {
+          comedor_id?: string
+          created_at?: string
+          group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_kitchens_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_kitchens_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       insumos: {
         Row: {
           comedor_id: string

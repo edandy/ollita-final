@@ -113,6 +113,7 @@ describe("admin module urls", () => {
     expect(adminSectionPath("gestores")).toBe("/admin/gestores");
     expect(adminSectionPath("usuarios")).toBe("/admin/usuarios");
     expect(adminSectionPath("actividad")).toBe("/admin/actividad");
+    expect(adminSectionPath("grupos")).toBe("/admin/grupos");
   });
 
   it("covers every admin section exactly once", () => {
@@ -127,6 +128,7 @@ describe("admin module urls", () => {
     expect(adminSectionFromPath("/admin/gestores")).toBe("gestores");
     expect(adminSectionFromPath("/admin/usuarios")).toBe("usuarios");
     expect(adminSectionFromPath("/admin/actividad")).toBe("actividad");
+    expect(adminSectionFromPath("/admin/grupos")).toBe("grupos");
     expect(adminSectionFromPath("/panel")).toBe(null);
   });
 });
@@ -138,12 +140,14 @@ describe("admin home for supervisors", () => {
     expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "gestores" })).toBe(false);
     expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "usuarios" })).toBe(false);
     expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "actividad" })).toBe(false);
+    expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "grupos" })).toBe(false);
   });
 
   it("lets admins open every section", () => {
     expect(canOpenAdminSection({ isAdmin: true, isSupervisor: false, section: "usuarios" })).toBe(true);
     expect(canOpenAdminSection({ isAdmin: true, isSupervisor: false, section: "nueva" })).toBe(true);
     expect(canOpenAdminSection({ isAdmin: true, isSupervisor: false, section: "gestores" })).toBe(true);
+    expect(canOpenAdminSection({ isAdmin: true, isSupervisor: false, section: "grupos" })).toBe(true);
   });
 
   it("lists only assigned kitchens for supervisors", () => {

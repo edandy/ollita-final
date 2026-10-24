@@ -41,7 +41,7 @@ export const adminListarComedores = createServerFn({ method: "GET" })
     const { admin, supervisor } = await platformRoles(context);
     if (!admin && !supervisor) throw new Error("No tienes permiso para ver esta sección");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: comedores }, { data: personal }, { data: benef }, { data: reservas }, { data: assignments }] = await Promise.all([
+    const [{ data: comedores }, { data: personal }, { data: benef }, { data: reservas }, { data: assignments }, { data: groupLinks }] = await Promise.all([
       supabaseAdmin.from("comedores").select("id,nombre,tipo,distrito,direccion,activo,precio_menu,raciones_diarias,telefono_whatsapp,yape_numero,created_at").order("created_at", { ascending: false }),
       supabaseAdmin.from("usuarios_comedor").select("comedor_id"),
       supabaseAdmin.from("beneficiarios").select("comedor_id"),
@@ -49,6 +49,7 @@ export const adminListarComedores = createServerFn({ method: "GET" })
       supervisor && !admin
         ? supabaseAdmin.from("supervisor_assignments").select("comedor_id").eq("user_id", context.userId)
         : Promise.resolve({ data: [] as { comedor_id: string }[] }),
+      supabaseAdmin.from("group_kitchens").select("group_id,comedor_id"),
     ]);
     const allowed = admin ? null : new Set((assignments ?? []).map((a) => a.comedor_id));
     const cuenta = (rows: any[] | null, id: string) => (rows ?? []).filter((r) => r.comedor_id === id).length;
@@ -59,6 +60,7 @@ export const adminListarComedores = createServerFn({ method: "GET" })
         socias: cuenta(personal, c.id),
         beneficiarios: cuenta(benef, c.id),
         reservas: cuenta(reservas, c.id),
+        groupIds: (groupLinks ?? []).filter((l) => l.comedor_id === c.id).map((l) => l.group_id),
       }));
   });
 
@@ -78,6 +80,7 @@ export const adminCrearComedor = createServerFn({ method: "POST" })
   .validator((d: {
     nombre: string; distrito: string; direccion: string;
     presidenta: string; dni: string; pin: string; telefono?: string; con_cuenta?: boolean;
+    groupIds?: string[];
   }) => {
     if (!d.nombre.trim()) throw new Error("Pon el nombre del comedor");
     if (d.con_cuenta) {
@@ -101,6 +104,8 @@ export const adminCrearComedor = createServerFn({ method: "POST" })
       }).select().single()
     );
     if (e1 || !comedor) throw new Error(e1?.message ?? "No se pudo crear el comedor");
+    const { replaceKitchenGroups } = await import("@/lib/groups.functions");
+    await replaceKitchenGroups(supabaseAdmin, comedor.id, data.groupIds ?? []);
 
     if (!data.con_cuenta) return { ok: true, comedor_id: comedor.id, nombre: comedor.nombre };
 
@@ -131,6 +136,7 @@ export const adminActualizarComedor = createServerFn({ method: "POST" })
   .validator((d: {
     comedor_id: string; nombre: string; tipo: string; distrito: string; direccion: string;
     precio_menu: number; raciones_diarias: number; telefono_whatsapp?: string; yape_numero?: string;
+    groupIds?: string[];
   }) => {
     if (!d.nombre.trim()) throw new Error("Pon el nombre");
     if (!["comedor", "olla", "restaurante"].includes(d.tipo)) throw new Error("Tipo inválido");
@@ -150,6 +156,8 @@ export const adminActualizarComedor = createServerFn({ method: "POST" })
       yape_numero: data.yape_numero?.trim() || null,
     }).eq("id", data.comedor_id);
     if (error) throw new Error(error.message);
+    const { replaceKitchenGroups } = await import("@/lib/groups.functions");
+    await replaceKitchenGroups(supabaseAdmin, data.comedor_id, data.groupIds ?? []);
     return { ok: true };
   });
 

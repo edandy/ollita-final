@@ -21,7 +21,7 @@ import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 import {
-  Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, LogOut,
+  Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, Layers, LogOut,
 } from "lucide-react";
 
 const NAV: { key: AdminSection; label: string; icon: typeof LayoutGrid }[] = [
@@ -29,6 +29,7 @@ const NAV: { key: AdminSection; label: string; icon: typeof LayoutGrid }[] = [
   { key: "nueva", label: "Nueva olla y enlace", icon: Plus },
   { key: "gestores", label: "Gestores", icon: Users },
   { key: "usuarios", label: "Usuarios", icon: UserCog },
+  { key: "grupos", label: "Grupos", icon: Layers },
   { key: "actividad", label: "Uso diario", icon: CalendarCheck },
 ];
 
@@ -48,6 +49,10 @@ const TITULOS: Record<AdminSection, { titulo: string; sub: (t: ReturnType<typeof
   usuarios: {
     titulo: "Usuarios",
     sub: (_t, n = 0) => `${n} usuarios de plataforma`,
+  },
+  grupos: {
+    titulo: "Grupos",
+    sub: (_t, n = 0) => n === 1 ? "1 grupo de ollas" : `${n} grupos de ollas`,
   },
   actividad: {
     titulo: "Uso diario",
@@ -131,6 +136,7 @@ function AdminLayout() {
     isAdmin && section === "ollas" ? { to: "/admin/nueva" as const, label: "Nueva olla", search: undefined }
     : isAdmin && section === "gestores" ? { to: "/admin/gestores" as const, label: "Nuevo gestor", search: { nuevo: true } }
     : isAdmin && section === "usuarios" ? { to: "/admin/usuarios" as const, label: "Nuevo usuario", search: { nuevo: true } }
+    : isAdmin && section === "grupos" ? { to: "/admin/grupos" as const, label: "Nuevo grupo", search: { nuevo: true } }
     : null;
 
   const cerrarSesion = async () => {

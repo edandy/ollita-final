@@ -9,36 +9,41 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as DonacionesRouteImport } from './routes/donaciones'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as InvitacionTokenRouteImport } from './routes/invitacion.$token'
-import { Route as ComedorIdRouteImport } from './routes/comedor.$id'
-import { Route as CampanaIdRouteImport } from './routes/campana.$id'
-import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/panel'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DonacionesRouteImport } from './routes/donaciones'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedPanelIndexRouteImport } from './routes/_authenticated/panel.index'
+import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/panel'
+import { Route as CampanaIdRouteImport } from './routes/campana.$id'
+import { Route as ComedorIdRouteImport } from './routes/comedor.$id'
+import { Route as InvitacionTokenRouteImport } from './routes/invitacion.$token'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
-import { Route as AuthenticatedPanelReservasRouteImport } from './routes/_authenticated/panel.reservas'
-import { Route as AuthenticatedPanelPersonalRouteImport } from './routes/_authenticated/panel.personal'
-import { Route as AuthenticatedPanelPerfilRouteImport } from './routes/_authenticated/panel.perfil'
-import { Route as AuthenticatedPanelPadronRouteImport } from './routes/_authenticated/panel.padron'
-import { Route as AuthenticatedPanelMenuRouteImport } from './routes/_authenticated/panel.menu'
-import { Route as AuthenticatedPanelMasRouteImport } from './routes/_authenticated/panel.mas'
-import { Route as AuthenticatedPanelInsumosRouteImport } from './routes/_authenticated/panel.insumos'
-import { Route as AuthenticatedPanelEntregasRouteImport } from './routes/_authenticated/panel.entregas'
-import { Route as AuthenticatedPanelCronogramaRouteImport } from './routes/_authenticated/panel.cronograma'
-import { Route as AuthenticatedPanelCampanasRouteImport } from './routes/_authenticated/panel.campanas'
-import { Route as AuthenticatedPanelCajaRouteImport } from './routes/_authenticated/panel.caja'
-import { Route as AuthenticatedAdminUsuariosRouteImport } from './routes/_authenticated/admin.usuarios'
-import { Route as AuthenticatedAdminNuevaRouteImport } from './routes/_authenticated/admin.nueva'
-import { Route as AuthenticatedAdminGestoresRouteImport } from './routes/_authenticated/admin.gestores'
 import { Route as AuthenticatedAdminActividadRouteImport } from './routes/_authenticated/admin.actividad'
+import { Route as AuthenticatedAdminGestoresRouteImport } from './routes/_authenticated/admin.gestores'
+import { Route as AuthenticatedAdminGruposRouteImport } from './routes/_authenticated/admin.grupos'
+import { Route as AuthenticatedAdminNuevaRouteImport } from './routes/_authenticated/admin.nueva'
+import { Route as AuthenticatedAdminUsuariosRouteImport } from './routes/_authenticated/admin.usuarios'
+import { Route as AuthenticatedPanelIndexRouteImport } from './routes/_authenticated/panel.index'
+import { Route as AuthenticatedPanelCajaRouteImport } from './routes/_authenticated/panel.caja'
+import { Route as AuthenticatedPanelCampanasRouteImport } from './routes/_authenticated/panel.campanas'
+import { Route as AuthenticatedPanelCronogramaRouteImport } from './routes/_authenticated/panel.cronograma'
+import { Route as AuthenticatedPanelEntregasRouteImport } from './routes/_authenticated/panel.entregas'
+import { Route as AuthenticatedPanelInsumosRouteImport } from './routes/_authenticated/panel.insumos'
+import { Route as AuthenticatedPanelMasRouteImport } from './routes/_authenticated/panel.mas'
+import { Route as AuthenticatedPanelMenuRouteImport } from './routes/_authenticated/panel.menu'
+import { Route as AuthenticatedPanelPadronRouteImport } from './routes/_authenticated/panel.padron'
+import { Route as AuthenticatedPanelPerfilRouteImport } from './routes/_authenticated/panel.perfil'
+import { Route as AuthenticatedPanelPersonalRouteImport } from './routes/_authenticated/panel.personal'
+import { Route as AuthenticatedPanelReservasRouteImport } from './routes/_authenticated/panel.reservas'
 
-const DonacionesRoute = DonacionesRouteImport.update({
-  id: '/donaciones',
-  path: '/donaciones',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -46,18 +51,24 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const DonacionesRoute = DonacionesRouteImport.update({
+  id: '/donaciones',
+  path: '/donaciones',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const InvitacionTokenRoute = InvitacionTokenRouteImport.update({
-  id: '/invitacion/$token',
-  path: '/invitacion/$token',
+const AuthenticatedPanelRoute = AuthenticatedPanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const CampanaIdRoute = CampanaIdRouteImport.update({
+  id: '/campana/$id',
+  path: '/campana/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ComedorIdRoute = ComedorIdRouteImport.update({
@@ -65,75 +76,59 @@ const ComedorIdRoute = ComedorIdRouteImport.update({
   path: '/comedor/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CampanaIdRoute = CampanaIdRouteImport.update({
-  id: '/campana/$id',
-  path: '/campana/$id',
+const InvitacionTokenRoute = InvitacionTokenRouteImport.update({
+  id: '/invitacion/$token',
+  path: '/invitacion/$token',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedPanelRoute = AuthenticatedPanelRouteImport.update({
-  id: '/panel',
-  path: '/panel',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPanelIndexRoute = AuthenticatedPanelIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedPanelRoute,
 } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedPanelReservasRoute =
-  AuthenticatedPanelReservasRouteImport.update({
-    id: '/reservas',
-    path: '/reservas',
-    getParentRoute: () => AuthenticatedPanelRoute,
+const AuthenticatedAdminActividadRoute =
+  AuthenticatedAdminActividadRouteImport.update({
+    id: '/actividad',
+    path: '/actividad',
+    getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedPanelPersonalRoute =
-  AuthenticatedPanelPersonalRouteImport.update({
-    id: '/personal',
-    path: '/personal',
-    getParentRoute: () => AuthenticatedPanelRoute,
+const AuthenticatedAdminGestoresRoute =
+  AuthenticatedAdminGestoresRouteImport.update({
+    id: '/gestores',
+    path: '/gestores',
+    getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedPanelPerfilRoute =
-  AuthenticatedPanelPerfilRouteImport.update({
-    id: '/perfil',
-    path: '/perfil',
-    getParentRoute: () => AuthenticatedPanelRoute,
+const AuthenticatedAdminGruposRoute =
+  AuthenticatedAdminGruposRouteImport.update({
+    id: '/grupos',
+    path: '/grupos',
+    getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedPanelPadronRoute =
-  AuthenticatedPanelPadronRouteImport.update({
-    id: '/padron',
-    path: '/padron',
-    getParentRoute: () => AuthenticatedPanelRoute,
+const AuthenticatedAdminNuevaRoute = AuthenticatedAdminNuevaRouteImport.update({
+  id: '/nueva',
+  path: '/nueva',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminUsuariosRoute =
+  AuthenticatedAdminUsuariosRouteImport.update({
+    id: '/usuarios',
+    path: '/usuarios',
+    getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedPanelMenuRoute = AuthenticatedPanelMenuRouteImport.update({
-  id: '/menu',
-  path: '/menu',
+const AuthenticatedPanelIndexRoute = AuthenticatedPanelIndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => AuthenticatedPanelRoute,
 } as any)
-const AuthenticatedPanelMasRoute = AuthenticatedPanelMasRouteImport.update({
-  id: '/mas',
-  path: '/mas',
+const AuthenticatedPanelCajaRoute = AuthenticatedPanelCajaRouteImport.update({
+  id: '/caja',
+  path: '/caja',
   getParentRoute: () => AuthenticatedPanelRoute,
 } as any)
-const AuthenticatedPanelInsumosRoute =
-  AuthenticatedPanelInsumosRouteImport.update({
-    id: '/insumos',
-    path: '/insumos',
-    getParentRoute: () => AuthenticatedPanelRoute,
-  } as any)
-const AuthenticatedPanelEntregasRoute =
-  AuthenticatedPanelEntregasRouteImport.update({
-    id: '/entregas',
-    path: '/entregas',
+const AuthenticatedPanelCampanasRoute =
+  AuthenticatedPanelCampanasRouteImport.update({
+    id: '/campanas',
+    path: '/campanas',
     getParentRoute: () => AuthenticatedPanelRoute,
   } as any)
 const AuthenticatedPanelCronogramaRoute =
@@ -142,39 +137,51 @@ const AuthenticatedPanelCronogramaRoute =
     path: '/cronograma',
     getParentRoute: () => AuthenticatedPanelRoute,
   } as any)
-const AuthenticatedPanelCampanasRoute =
-  AuthenticatedPanelCampanasRouteImport.update({
-    id: '/campanas',
-    path: '/campanas',
+const AuthenticatedPanelEntregasRoute =
+  AuthenticatedPanelEntregasRouteImport.update({
+    id: '/entregas',
+    path: '/entregas',
     getParentRoute: () => AuthenticatedPanelRoute,
   } as any)
-const AuthenticatedPanelCajaRoute = AuthenticatedPanelCajaRouteImport.update({
-  id: '/caja',
-  path: '/caja',
+const AuthenticatedPanelInsumosRoute =
+  AuthenticatedPanelInsumosRouteImport.update({
+    id: '/insumos',
+    path: '/insumos',
+    getParentRoute: () => AuthenticatedPanelRoute,
+  } as any)
+const AuthenticatedPanelMasRoute = AuthenticatedPanelMasRouteImport.update({
+  id: '/mas',
+  path: '/mas',
   getParentRoute: () => AuthenticatedPanelRoute,
 } as any)
-const AuthenticatedAdminUsuariosRoute =
-  AuthenticatedAdminUsuariosRouteImport.update({
-    id: '/usuarios',
-    path: '/usuarios',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminNuevaRoute = AuthenticatedAdminNuevaRouteImport.update({
-  id: '/nueva',
-  path: '/nueva',
-  getParentRoute: () => AuthenticatedAdminRoute,
+const AuthenticatedPanelMenuRoute = AuthenticatedPanelMenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
+  getParentRoute: () => AuthenticatedPanelRoute,
 } as any)
-const AuthenticatedAdminGestoresRoute =
-  AuthenticatedAdminGestoresRouteImport.update({
-    id: '/gestores',
-    path: '/gestores',
-    getParentRoute: () => AuthenticatedAdminRoute,
+const AuthenticatedPanelPadronRoute =
+  AuthenticatedPanelPadronRouteImport.update({
+    id: '/padron',
+    path: '/padron',
+    getParentRoute: () => AuthenticatedPanelRoute,
   } as any)
-const AuthenticatedAdminActividadRoute =
-  AuthenticatedAdminActividadRouteImport.update({
-    id: '/actividad',
-    path: '/actividad',
-    getParentRoute: () => AuthenticatedAdminRoute,
+const AuthenticatedPanelPerfilRoute =
+  AuthenticatedPanelPerfilRouteImport.update({
+    id: '/perfil',
+    path: '/perfil',
+    getParentRoute: () => AuthenticatedPanelRoute,
+  } as any)
+const AuthenticatedPanelPersonalRoute =
+  AuthenticatedPanelPersonalRouteImport.update({
+    id: '/personal',
+    path: '/personal',
+    getParentRoute: () => AuthenticatedPanelRoute,
+  } as any)
+const AuthenticatedPanelReservasRoute =
+  AuthenticatedPanelReservasRouteImport.update({
+    id: '/reservas',
+    path: '/reservas',
+    getParentRoute: () => AuthenticatedPanelRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -188,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/admin/actividad': typeof AuthenticatedAdminActividadRoute
   '/admin/gestores': typeof AuthenticatedAdminGestoresRoute
+  '/admin/grupos': typeof AuthenticatedAdminGruposRoute
   '/admin/nueva': typeof AuthenticatedAdminNuevaRoute
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/panel/caja': typeof AuthenticatedPanelCajaRoute
@@ -213,6 +221,7 @@ export interface FileRoutesByTo {
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/admin/actividad': typeof AuthenticatedAdminActividadRoute
   '/admin/gestores': typeof AuthenticatedAdminGestoresRoute
+  '/admin/grupos': typeof AuthenticatedAdminGruposRoute
   '/admin/nueva': typeof AuthenticatedAdminNuevaRoute
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/panel/caja': typeof AuthenticatedPanelCajaRoute
@@ -242,6 +251,7 @@ export interface FileRoutesById {
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/_authenticated/admin/actividad': typeof AuthenticatedAdminActividadRoute
   '/_authenticated/admin/gestores': typeof AuthenticatedAdminGestoresRoute
+  '/_authenticated/admin/grupos': typeof AuthenticatedAdminGruposRoute
   '/_authenticated/admin/nueva': typeof AuthenticatedAdminNuevaRoute
   '/_authenticated/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/_authenticated/panel/caja': typeof AuthenticatedPanelCajaRoute
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/invitacion/$token'
     | '/admin/actividad'
     | '/admin/gestores'
+    | '/admin/grupos'
     | '/admin/nueva'
     | '/admin/usuarios'
     | '/panel/caja'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/invitacion/$token'
     | '/admin/actividad'
     | '/admin/gestores'
+    | '/admin/grupos'
     | '/admin/nueva'
     | '/admin/usuarios'
     | '/panel/caja'
@@ -324,6 +336,7 @@ export interface FileRouteTypes {
     | '/invitacion/$token'
     | '/_authenticated/admin/actividad'
     | '/_authenticated/admin/gestores'
+    | '/_authenticated/admin/grupos'
     | '/_authenticated/admin/nueva'
     | '/_authenticated/admin/usuarios'
     | '/_authenticated/panel/caja'
@@ -353,18 +366,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/donaciones': {
-      id: '/donaciones'
-      path: '/donaciones'
-      fullPath: '/donaciones'
-      preLoaderRoute: typeof DonacionesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -374,18 +380,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/invitacion/$token': {
-      id: '/invitacion/$token'
-      path: '/invitacion/$token'
-      fullPath: '/invitacion/$token'
-      preLoaderRoute: typeof InvitacionTokenRouteImport
+    '/donaciones': {
+      id: '/donaciones'
+      path: '/donaciones'
+      fullPath: '/donaciones'
+      preLoaderRoute: typeof DonacionesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/panel': {
+      id: '/_authenticated/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof AuthenticatedPanelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/campana/$id': {
+      id: '/campana/$id'
+      path: '/campana/$id'
+      fullPath: '/campana/$id'
+      preLoaderRoute: typeof CampanaIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/comedor/$id': {
@@ -395,137 +422,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComedorIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/campana/$id': {
-      id: '/campana/$id'
-      path: '/campana/$id'
-      fullPath: '/campana/$id'
-      preLoaderRoute: typeof CampanaIdRouteImport
+    '/invitacion/$token': {
+      id: '/invitacion/$token'
+      path: '/invitacion/$token'
+      fullPath: '/invitacion/$token'
+      preLoaderRoute: typeof InvitacionTokenRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/panel': {
-      id: '/_authenticated/panel'
-      path: '/panel'
-      fullPath: '/panel'
-      preLoaderRoute: typeof AuthenticatedPanelRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/panel/': {
-      id: '/_authenticated/panel/'
-      path: '/'
-      fullPath: '/panel/'
-      preLoaderRoute: typeof AuthenticatedPanelIndexRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/panel/reservas': {
-      id: '/_authenticated/panel/reservas'
-      path: '/reservas'
-      fullPath: '/panel/reservas'
-      preLoaderRoute: typeof AuthenticatedPanelReservasRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/personal': {
-      id: '/_authenticated/panel/personal'
-      path: '/personal'
-      fullPath: '/panel/personal'
-      preLoaderRoute: typeof AuthenticatedPanelPersonalRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/perfil': {
-      id: '/_authenticated/panel/perfil'
-      path: '/perfil'
-      fullPath: '/panel/perfil'
-      preLoaderRoute: typeof AuthenticatedPanelPerfilRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/padron': {
-      id: '/_authenticated/panel/padron'
-      path: '/padron'
-      fullPath: '/panel/padron'
-      preLoaderRoute: typeof AuthenticatedPanelPadronRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/menu': {
-      id: '/_authenticated/panel/menu'
-      path: '/menu'
-      fullPath: '/panel/menu'
-      preLoaderRoute: typeof AuthenticatedPanelMenuRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/mas': {
-      id: '/_authenticated/panel/mas'
-      path: '/mas'
-      fullPath: '/panel/mas'
-      preLoaderRoute: typeof AuthenticatedPanelMasRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/insumos': {
-      id: '/_authenticated/panel/insumos'
-      path: '/insumos'
-      fullPath: '/panel/insumos'
-      preLoaderRoute: typeof AuthenticatedPanelInsumosRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/entregas': {
-      id: '/_authenticated/panel/entregas'
-      path: '/entregas'
-      fullPath: '/panel/entregas'
-      preLoaderRoute: typeof AuthenticatedPanelEntregasRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/cronograma': {
-      id: '/_authenticated/panel/cronograma'
-      path: '/cronograma'
-      fullPath: '/panel/cronograma'
-      preLoaderRoute: typeof AuthenticatedPanelCronogramaRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/campanas': {
-      id: '/_authenticated/panel/campanas'
-      path: '/campanas'
-      fullPath: '/panel/campanas'
-      preLoaderRoute: typeof AuthenticatedPanelCampanasRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/panel/caja': {
-      id: '/_authenticated/panel/caja'
-      path: '/caja'
-      fullPath: '/panel/caja'
-      preLoaderRoute: typeof AuthenticatedPanelCajaRouteImport
-      parentRoute: typeof AuthenticatedPanelRoute
-    }
-    '/_authenticated/admin/usuarios': {
-      id: '/_authenticated/admin/usuarios'
-      path: '/usuarios'
-      fullPath: '/admin/usuarios'
-      preLoaderRoute: typeof AuthenticatedAdminUsuariosRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/nueva': {
-      id: '/_authenticated/admin/nueva'
-      path: '/nueva'
-      fullPath: '/admin/nueva'
-      preLoaderRoute: typeof AuthenticatedAdminNuevaRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/gestores': {
-      id: '/_authenticated/admin/gestores'
-      path: '/gestores'
-      fullPath: '/admin/gestores'
-      preLoaderRoute: typeof AuthenticatedAdminGestoresRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/actividad': {
@@ -535,12 +443,125 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminActividadRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/gestores': {
+      id: '/_authenticated/admin/gestores'
+      path: '/gestores'
+      fullPath: '/admin/gestores'
+      preLoaderRoute: typeof AuthenticatedAdminGestoresRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/grupos': {
+      id: '/_authenticated/admin/grupos'
+      path: '/grupos'
+      fullPath: '/admin/grupos'
+      preLoaderRoute: typeof AuthenticatedAdminGruposRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/nueva': {
+      id: '/_authenticated/admin/nueva'
+      path: '/nueva'
+      fullPath: '/admin/nueva'
+      preLoaderRoute: typeof AuthenticatedAdminNuevaRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/usuarios': {
+      id: '/_authenticated/admin/usuarios'
+      path: '/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AuthenticatedAdminUsuariosRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/panel/': {
+      id: '/_authenticated/panel/'
+      path: '/'
+      fullPath: '/panel/'
+      preLoaderRoute: typeof AuthenticatedPanelIndexRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/caja': {
+      id: '/_authenticated/panel/caja'
+      path: '/caja'
+      fullPath: '/panel/caja'
+      preLoaderRoute: typeof AuthenticatedPanelCajaRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/campanas': {
+      id: '/_authenticated/panel/campanas'
+      path: '/campanas'
+      fullPath: '/panel/campanas'
+      preLoaderRoute: typeof AuthenticatedPanelCampanasRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/cronograma': {
+      id: '/_authenticated/panel/cronograma'
+      path: '/cronograma'
+      fullPath: '/panel/cronograma'
+      preLoaderRoute: typeof AuthenticatedPanelCronogramaRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/entregas': {
+      id: '/_authenticated/panel/entregas'
+      path: '/entregas'
+      fullPath: '/panel/entregas'
+      preLoaderRoute: typeof AuthenticatedPanelEntregasRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/insumos': {
+      id: '/_authenticated/panel/insumos'
+      path: '/insumos'
+      fullPath: '/panel/insumos'
+      preLoaderRoute: typeof AuthenticatedPanelInsumosRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/mas': {
+      id: '/_authenticated/panel/mas'
+      path: '/mas'
+      fullPath: '/panel/mas'
+      preLoaderRoute: typeof AuthenticatedPanelMasRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/menu': {
+      id: '/_authenticated/panel/menu'
+      path: '/menu'
+      fullPath: '/panel/menu'
+      preLoaderRoute: typeof AuthenticatedPanelMenuRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/padron': {
+      id: '/_authenticated/panel/padron'
+      path: '/padron'
+      fullPath: '/panel/padron'
+      preLoaderRoute: typeof AuthenticatedPanelPadronRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/perfil': {
+      id: '/_authenticated/panel/perfil'
+      path: '/perfil'
+      fullPath: '/panel/perfil'
+      preLoaderRoute: typeof AuthenticatedPanelPerfilRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/personal': {
+      id: '/_authenticated/panel/personal'
+      path: '/personal'
+      fullPath: '/panel/personal'
+      preLoaderRoute: typeof AuthenticatedPanelPersonalRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
+    '/_authenticated/panel/reservas': {
+      id: '/_authenticated/panel/reservas'
+      path: '/reservas'
+      fullPath: '/panel/reservas'
+      preLoaderRoute: typeof AuthenticatedPanelReservasRouteImport
+      parentRoute: typeof AuthenticatedPanelRoute
+    }
   }
 }
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminActividadRoute: typeof AuthenticatedAdminActividadRoute
   AuthenticatedAdminGestoresRoute: typeof AuthenticatedAdminGestoresRoute
+  AuthenticatedAdminGruposRoute: typeof AuthenticatedAdminGruposRoute
   AuthenticatedAdminNuevaRoute: typeof AuthenticatedAdminNuevaRoute
   AuthenticatedAdminUsuariosRoute: typeof AuthenticatedAdminUsuariosRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -549,6 +570,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminActividadRoute: AuthenticatedAdminActividadRoute,
   AuthenticatedAdminGestoresRoute: AuthenticatedAdminGestoresRoute,
+  AuthenticatedAdminGruposRoute: AuthenticatedAdminGruposRoute,
   AuthenticatedAdminNuevaRoute: AuthenticatedAdminNuevaRoute,
   AuthenticatedAdminUsuariosRoute: AuthenticatedAdminUsuariosRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,

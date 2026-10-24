@@ -4,7 +4,7 @@ import "./lib/ssr-shim";
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
-import { renderErrorPage } from "./lib/error-page";
+import { isSwallowedHttpError, responseForSsrFailure, responseForSwallowedSsr } from "./lib/ssr-errors";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -23,21 +23,24 @@ async function getServerEntry(): Promise<ServerEntry> {
 
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
-async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
+async function normalizeCatastrophicSsrResponse(response: Response, request: Request): Promise<Response> {
   if (response.status < 500) return response;
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) return response;
 
   const body = await response.clone().text();
-  if (!body.includes('"unhandled":true') || !body.includes('"message":"HTTPError"')) {
-    return response;
-  }
+  if (!isSwallowedHttpError(body)) return response;
 
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
-  return new Response(renderErrorPage(), {
-    status: 500,
-    headers: { "content-type": "text/html; charset=utf-8" },
+  const captured = consumeLastCapturedError();
+  const next = responseForSwallowedSsr({
+    body,
+    capturedError: captured,
+    requestAborted: request.signal.aborted,
   });
+  if (next.status >= 500) {
+    console.error(captured ?? new Error(`h3 swallowed SSR error: ${body}`));
+  }
+  return next;
 }
 
 export default {
@@ -45,13 +48,11 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return await normalizeCatastrophicSsrResponse(response, request);
     } catch (error) {
-      console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      const next = responseForSsrFailure(error, request.signal.aborted);
+      if (next.status >= 500) console.error(error);
+      return next;
     }
   },
 };

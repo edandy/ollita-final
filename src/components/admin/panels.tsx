@@ -10,6 +10,8 @@ import {
 } from "@/lib/supervisor.functions";
 import { SUPERVISOR_KITCHEN_STORAGE_KEY, type AccessLevel } from "@/lib/access";
 import { needsSupervisorFields, friendlyCreatePlatformUserError, type PlatformRole } from "@/lib/supervisor";
+import { listGroups, type GroupRow } from "@/lib/groups.functions";
+import { friendlyGroupError } from "@/lib/groups";
 import { useSubmitLock } from "@/lib/submit-lock";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
@@ -245,6 +247,57 @@ function SelectCargo({ value, onChange, label }: { value: string; onChange: (v: 
         {CARGOS.map((c) => <option key={c} value={c}>{c[0]!.toUpperCase() + c.slice(1)}</option>)}
       </select>
     </label>
+  );
+}
+
+function GroupChecklist({
+  selectedIds,
+  onChange,
+}: {
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const fnList = useServerFn(listGroups);
+  const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fnList({})
+      .then((rows) => setGroups(rows))
+      .catch((e: any) => void notifyError(friendlyGroupError(e?.message ?? "No pudimos cargar los grupos.")))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[15px] font-semibold text-bosque">Grupos</span>
+      <span className="text-[14px] text-[#718096] -mt-1">Puedes asignar uno o más. Es opcional.</span>
+      {!loaded ? (
+        <p className="text-[15px] text-[#718096]">Cargando grupos…</p>
+      ) : groups.length === 0 ? (
+        <p className="text-[15px] text-[#718096]">Aún no hay grupos. Créalos en Grupos si quieres agrupar esta olla.</p>
+      ) : (
+        <div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto">
+          {groups.map((g) => {
+            const on = selectedIds.includes(g.id);
+            return (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() =>
+                  onChange(on ? selectedIds.filter((id) => id !== g.id) : [...selectedIds, g.id])
+                }
+                className={`min-h-12 px-4 rounded-xl border text-left text-[17px] font-semibold ${
+                  on ? "border-[#0F7BA8] bg-[#C5EBF9] text-[#072249]" : "border-[#E0E0E0] bg-white text-[#475569]"
+                }`}
+              >
+                {g.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -526,6 +579,7 @@ function ModalEditar({ comedor, cerrar, recargar }: { comedor: Fila; cerrar: () 
     telefono_whatsapp: comedor.telefono_whatsapp ?? "",
     yape_numero: comedor.yape_numero ?? "",
   });
+  const [groupIds, setGroupIds] = useState<string[]>(comedor.groupIds ?? []);
   const [err, setErr] = useState<string | null>(null);
   const { pending: guardando, run } = useSubmitLock();
 
@@ -559,6 +613,7 @@ function ModalEditar({ comedor, cerrar, recargar }: { comedor: Fila; cerrar: () 
                   raciones_diarias: Number(v.raciones_diarias) || 0,
                   telefono_whatsapp: v.telefono_whatsapp,
                   yape_numero: v.yape_numero,
+                  groupIds,
                 },
               });
               void notifySuccess("Guardamos los cambios.");
@@ -593,6 +648,7 @@ function ModalEditar({ comedor, cerrar, recargar }: { comedor: Fila; cerrar: () 
           <Campo label="Distrito" value={v.distrito} onChange={(e: any) => setV({ ...v, distrito: e.target.value })} />
           <Campo label="Dirección" value={v.direccion} onChange={(e: any) => setV({ ...v, direccion: e.target.value })} />
         </div>
+        <GroupChecklist selectedIds={groupIds} onChange={setGroupIds} />
         {err && <p className="text-[#C5352B] text-sm">{err}</p>}
         <div className="flex gap-3 mt-1">
           <button type="button" onClick={cerrar} className="flex-1 min-h-14 rounded-full border border-[#E0E0E0] bg-white text-bosque text-[17px] font-semibold">
@@ -616,6 +672,7 @@ export function PanelNueva({ comedores, recargar, verOllas }: { comedores: Fila[
   const fnInv = useServerFn(adminCrearInvitacion);
   const fnRegistro = useServerFn(adminCrearEnlaceRegistro);
   const [v, setV] = useState({ nombre: "", distrito: "", direccion: "", presidenta: "", dni: "", pin: "", telefono: "" });
+  const [groupIds, setGroupIds] = useState<string[]>([]);
   const [modo, setModo] = useState<"enlace" | "cuenta">("enlace");
   const [cargo, setCargo] = useState<string>("presidenta");
   const [err, setErr] = useState<string | null>(null);
@@ -639,7 +696,7 @@ export function PanelNueva({ comedores, recargar, verOllas }: { comedores: Fila[
             setErr(null);
             void run(async () => {
               try {
-                const r: any = await fnCrear({ data: { ...v, con_cuenta: modo === "cuenta" } });
+                const r: any = await fnCrear({ data: { ...v, con_cuenta: modo === "cuenta", groupIds } });
                 setCreado(r.nombre ?? v.nombre);
                 recargar();
                 if (modo === "enlace") {
@@ -647,6 +704,7 @@ export function PanelNueva({ comedores, recargar, verOllas }: { comedores: Fila[
                   setEnlace(`${window.location.origin}/invitacion/${inv.token}`);
                 }
                 setV({ nombre: "", distrito: "", direccion: "", presidenta: "", dni: "", pin: "", telefono: "" });
+                setGroupIds([]);
                 void notifySuccess(`Se creó ${r.nombre ?? v.nombre}.`);
               } catch (e: any) {
                 const msg = friendlySupabaseError(e?.message ?? "No se pudo crear");
@@ -661,6 +719,7 @@ export function PanelNueva({ comedores, recargar, verOllas }: { comedores: Fila[
             <Campo label="Distrito" value={v.distrito} onChange={(e: any) => setV({ ...v, distrito: e.target.value })} placeholder="Cercado de Lima" />
             <Campo label="Dirección" value={v.direccion} onChange={(e: any) => setV({ ...v, direccion: e.target.value })} placeholder="Av. Los Álamos 240" />
           </div>
+          <GroupChecklist selectedIds={groupIds} onChange={setGroupIds} />
 
           <div className="flex flex-col gap-2.5">
             <span className="text-[15px] font-semibold">¿Cómo entrará la presidenta?</span>
