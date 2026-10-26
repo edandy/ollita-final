@@ -41,3 +41,9 @@ Clave de las dos: `OllitaDemo1`
 
 Rosa — DNI `88880001`, celular `999888001`.
 Luis — DNI `88880002`, celular `999888002`.
+
+## Almacén (G2)
+
+El seeder también carga el almacén de Virgen del Carmen, Cristo Rey, Santa María y Las Flores: seis insumos (arroz, aceite, azúcar, fideos, menestras y leche evaporada) con dos semanas de salidas diarias. Cada vez que corre, borra y vuelve a crear los insumos de esas cuatro ollas.
+
+Los días de cobertura quedan fijos (`SUPPLY_DAYS` en el script). Cristo Rey, Santa María y Las Flores tienen insumos por debajo de 4 días, así que salen en alerta en `/admin/reportes` → **G2 · Almacén del grupo**. Villa Hermosa sigue sin movimientos.

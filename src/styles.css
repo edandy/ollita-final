@@ -330,6 +330,17 @@ table.g1-tb .r {
   white-space: nowrap;
 }
 
+table.g1-tb .c {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+table.g1-tb td.al {
+  background: #FDECEA;
+  color: #C5221F;
+  font-weight: 700;
+}
+
 table.g1-tb tr.tot td {
   font-weight: 700;
   border-bottom: 0;

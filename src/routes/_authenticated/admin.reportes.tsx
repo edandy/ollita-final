@@ -3,11 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { G1ReportPreview } from "@/components/admin/g1-report";
+import { G2ReportPreview } from "@/components/admin/g2-report";
 import { useAdminLayout } from "@/lib/admin-layout-context";
 import { todayISO } from "@/lib/dates";
 import { shiftWeek, weekRangeMonSat, type G1Report } from "@/lib/g1";
-import { downloadG1Pdf, g1PdfFilename } from "@/lib/g1-pdf";
+import { downloadG1Pdf, g1PdfFilename, g2PdfFilename } from "@/lib/g1-pdf";
 import { getG1Report, listReportGroups } from "@/lib/g1.functions";
+import type { G2Report } from "@/lib/g2";
+import { getG2Report } from "@/lib/g2.functions";
 import type { GroupRow } from "@/lib/groups.functions";
 import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
@@ -20,14 +23,25 @@ export const Route = createFileRoute("/_authenticated/admin/reportes")({
   component: ReportesPage,
 });
 
+const REPORT_KINDS = [
+  { value: "g1", label: "G1 · Raciones del grupo" },
+  { value: "g2", label: "G2 · Almacén del grupo" },
+] as const;
+
+type ReportKind = (typeof REPORT_KINDS)[number]["value"];
+
+type LoadedReport = { kind: "g1"; data: G1Report } | { kind: "g2"; data: G2Report };
+
 function ReportesPage() {
   const { isAdmin, setSubtitleCount } = useAdminLayout();
   const fnGroups = useServerFn(listReportGroups);
-  const fnReport = useServerFn(getG1Report);
+  const fnG1 = useServerFn(getG1Report);
+  const fnG2 = useServerFn(getG2Report);
+  const [kind, setKind] = useState<ReportKind>("g1");
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [groupId, setGroupId] = useState("");
   const [weekStart, setWeekStart] = useState(() => weekRangeMonSat(todayISO()).from);
-  const [report, setReport] = useState<G1Report | null>(null);
+  const [report, setReport] = useState<LoadedReport | null>(null);
   const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const sheetRef = useRef<HTMLElement>(null);
@@ -57,7 +71,17 @@ function ReportesPage() {
     }
     let cancelled = false;
     setLoading(true);
-    fnReport({ data: { groupId, weekStart } })
+    const load: Promise<{ report: LoadedReport; emptyMessage: string | null }> =
+      kind === "g1"
+        ? fnG1({ data: { groupId, weekStart } }).then((r) => ({
+            report: { kind: "g1", data: r.report },
+            emptyMessage: r.emptyMessage,
+          }))
+        : fnG2({ data: { groupId, weekStart } }).then((r) => ({
+            report: { kind: "g2", data: r.report },
+            emptyMessage: r.emptyMessage,
+          }));
+    load
       .then((r) => {
         if (cancelled) return;
         setReport(r.report);
@@ -74,11 +98,23 @@ function ReportesPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, weekStart]);
+  }, [groupId, weekStart, kind]);
 
   return (
     <div className="flex flex-col gap-5">
       <div className="g1-no-print flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
+        <label className="flex flex-col gap-1.5 min-w-[220px]">
+          <span className="text-[15px] font-semibold text-bosque">Reporte</span>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as ReportKind)}
+            className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
+          >
+            {REPORT_KINDS.map((k) => (
+              <option key={k.value} value={k.value}>{k.label}</option>
+            ))}
+          </select>
+        </label>
         <label className="flex flex-col gap-1.5 min-w-[220px] flex-1">
           <span className="text-[15px] font-semibold text-bosque">Grupo</span>
           <select
@@ -125,7 +161,12 @@ function ReportesPage() {
             }
             void runExport(async () => {
               try {
-                await downloadG1Pdf(sheet, g1PdfFilename(report.groupName, report.week.from, report.week.to));
+                const { groupName, week } = report.data;
+                const filename =
+                  report.kind === "g1"
+                    ? g1PdfFilename(groupName, week.from, week.to)
+                    : g2PdfFilename(groupName, week.from, week.to);
+                await downloadG1Pdf(sheet, filename);
               } catch (err) {
                 console.error(err);
                 void notifyError("No pudimos generar el PDF. Inténtalo de nuevo.");
@@ -157,7 +198,11 @@ function ReportesPage() {
 
       {!loading && report && !emptyMessage && (
         <div className="print:mx-0">
-          <G1ReportPreview report={report} sheetRef={sheetRef} />
+          {report.kind === "g1" ? (
+            <G1ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : (
+            <G2ReportPreview report={report.data} sheetRef={sheetRef} />
+          )}
         </div>
       )}
     </div>

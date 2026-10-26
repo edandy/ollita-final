@@ -8,6 +8,7 @@ import {
   buildG1SheetSvg,
   g1ImageDisplaySize,
   g1PdfFilename,
+  g2PdfFilename,
 } from "./g1-pdf";
 
 describe("g1PdfFilename", () => {
@@ -20,6 +21,14 @@ describe("g1PdfFilename", () => {
   it("strips accents and punctuation from the group name", () => {
     expect(g1PdfFilename("Ollas María · Centro", "2026-01-05", "2026-01-10")).toBe(
       "G1-Raciones-Ollas-Maria-Centro-2026-01-05_2026-01-10.pdf",
+    );
+  });
+});
+
+describe("g2PdfFilename", () => {
+  it("names the warehouse report after the group and week", () => {
+    expect(g2PdfFilename("Ollas María · Centro", "2026-10-19", "2026-10-24")).toBe(
+      "G2-Almacen-Ollas-Maria-Centro-2026-10-19_2026-10-24.pdf",
     );
   });
 });

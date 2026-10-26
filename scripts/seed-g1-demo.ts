@@ -86,6 +86,23 @@ const KITCHENS = [
   },
 ] as const;
 
+const SUPPLIES = [
+  { key: "arroz", nombre: "Arroz", unidad: "kg", dailyUse: 10, precio: 4.2 },
+  { key: "aceite", nombre: "Aceite", unidad: "L", dailyUse: 1.5, precio: 9.5 },
+  { key: "azucar", nombre: "Azúcar", unidad: "kg", dailyUse: 1, precio: 3.8 },
+  { key: "fideos", nombre: "Fideos", unidad: "kg", dailyUse: 3.5, precio: 5 },
+  { key: "menestras", nombre: "Menestras", unidad: "kg", dailyUse: 2, precio: 7 },
+  { key: "leche", nombre: "Leche evaporada", unidad: "unid", dailyUse: 6, precio: 3.9 },
+] as const;
+
+// Days of coverage each seeded kitchen ends with; under 4 shows up as an alert in G2.
+const SUPPLY_DAYS = {
+  carmen: { arroz: 8, aceite: 6, azucar: 9, fideos: 7, menestras: 12, leche: 10 },
+  cristo: { arroz: 3, aceite: 2, azucar: 5, fideos: 3, menestras: 6, leche: 5 },
+  santa: { arroz: 7, aceite: 3, azucar: 3, fideos: 6, menestras: 8, leche: 3 },
+  flores: { arroz: 5, aceite: 2, azucar: 3, fideos: 5, menestras: 4, leche: 7 },
+} as const;
+
 const SHARED_DNI = "88881111";
 
 const BENEFICIARIES: {
@@ -138,6 +155,12 @@ function datesInRange(from: string, to: string) {
   return days;
 }
 
+function addDaysISO(iso: string, days: number) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function suffix(n: number) {
   let x = n;
   let s = "";
@@ -164,7 +187,8 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const week = weekRangeMonSat(todayISO());
+  const today = todayISO();
+  const week = weekRangeMonSat(today);
   const days = datesInRange(week.from, week.to);
   let codeSeq = 1;
 
@@ -357,6 +381,50 @@ async function main() {
     }
   }
 
+  // G2: warehouse supplies with two weeks of daily outflows, sized so each kitchen lands on SUPPLY_DAYS.
+  const supplyDates = datesInRange(addDaysISO(today, -13), today);
+  const { error: delSuppliesErr } = await supabase.from("insumos").delete().in("comedor_id", seededIds);
+  throwIf(delSuppliesErr, "borrar insumos demo");
+  for (const k of KITCHENS.filter((x) => x.seed)) {
+    const comedorId = kitchenIds[k.key]!;
+    const coverage = SUPPLY_DAYS[k.key as keyof typeof SUPPLY_DAYS];
+    for (const s of SUPPLIES) {
+      const days = coverage[s.key];
+      const { data: insumo, error: insErr } = await supabase
+        .from("insumos")
+        .insert({
+          comedor_id: comedorId,
+          nombre: s.nombre,
+          unidad: s.unidad,
+          stock_actual: s.dailyUse * days,
+          consumo_diario_promedio: 0,
+          precio_referencial: s.precio,
+          origen: "comprado",
+        })
+        .select("id")
+        .single();
+      throwIf(insErr, `insumo ${s.nombre} en ${k.nombre}`);
+      const { error: movErr } = await supabase.from("movimientos_insumo").insert([
+        {
+          insumo_id: insumo!.id,
+          tipo: "ingreso",
+          cantidad: s.dailyUse * 10,
+          fecha: supplyDates[0],
+          nota: "Compra · g1-demo",
+          precio_unitario: s.precio,
+        },
+        ...supplyDates.map((fecha) => ({
+          insumo_id: insumo!.id,
+          tipo: "salida" as const,
+          cantidad: s.dailyUse,
+          fecha,
+          nota: "g1-demo",
+        })),
+      ]);
+      throwIf(movErr, `movimientos ${s.nombre} en ${k.nombre}`);
+    }
+  }
+
   const { data: authPage, error: listErr } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
   throwIf(listErr, "listar usuarios");
   const users = authPage?.users ?? [];
@@ -479,7 +547,7 @@ async function main() {
     }
   }
 
-  console.log("\nDemo G1 listo en el Supabase de .env.local\n");
+  console.log("\nDemo G1 y G2 listo en el Supabase de .env.local\n");
   console.log(`Grupo:   ${GROUP_NAME}`);
   console.log(`Semana:  ${week.label} (${week.from} a ${week.to})`);
   console.log("Ollas:   " + KITCHENS.map((k) => k.nombre.replace(PREFIX, "")).join(", "));

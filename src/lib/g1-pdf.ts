@@ -73,6 +73,15 @@ table.g1-tb .r {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+table.g1-tb .c {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+table.g1-tb td.al {
+  background: #FDECEA;
+  color: #C5221F;
+  font-weight: 700;
+}
 table.g1-tb tr.tot td {
   font-weight: 700;
   border-bottom: 0;
@@ -83,13 +92,20 @@ table.g1-tb tr.tot td {
 }
 `;
 
-export function g1PdfFilename(groupName: string, weekFrom: string, weekTo: string) {
-  const slug = groupName
+function slugify(name: string) {
+  return name
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `G1-Raciones-${slug}-${weekFrom}_${weekTo}.pdf`;
+}
+
+export function g1PdfFilename(groupName: string, weekFrom: string, weekTo: string) {
+  return `G1-Raciones-${slugify(groupName)}-${weekFrom}_${weekTo}.pdf`;
+}
+
+export function g2PdfFilename(groupName: string, weekFrom: string, weekTo: string) {
+  return `G2-Almacen-${slugify(groupName)}-${weekFrom}_${weekTo}.pdf`;
 }
 
 function openPrintFrame() {

@@ -23,7 +23,7 @@ async function platformRoles(context: any) {
   };
 }
 
-async function exigirAdminOSupervisor(context: any) {
+export async function exigirAdminOSupervisor(context: any) {
   const roles = await platformRoles(context);
   if (!roles.admin && !roles.supervisor) {
     throw new Error("No tienes permiso para ver esta sección");
@@ -31,7 +31,7 @@ async function exigirAdminOSupervisor(context: any) {
   return roles;
 }
 
-async function assignedKitchenIds(supabaseAdmin: any, userId: string) {
+export async function assignedKitchenIds(supabaseAdmin: any, userId: string) {
   const { data, error } = await supabaseAdmin
     .from("supervisor_assignments")
     .select("comedor_id")
@@ -40,7 +40,7 @@ async function assignedKitchenIds(supabaseAdmin: any, userId: string) {
   return (data ?? []).map((r: { comedor_id: string }) => r.comedor_id);
 }
 
-async function loadGroups(supabaseAdmin: any): Promise<GroupRow[]> {
+export async function loadGroups(supabaseAdmin: any): Promise<GroupRow[]> {
   const [{ data: groups, error: gErr }, { data: links, error: lErr }] = await Promise.all([
     supabaseAdmin.from("groups").select("id,name,created_at").order("name"),
     supabaseAdmin.from("group_kitchens").select("group_id,comedor_id"),
