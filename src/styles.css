@@ -228,3 +228,161 @@
   background: var(--terracota-suave);
   color: var(--bosque);
 }
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+@font-face {
+  font-family: "Metropolis";
+  src: url("/fonts/Metropolis-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Metropolis";
+  src: url("/fonts/Metropolis-SemiBold.woff") format("woff");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Metropolis";
+  src: url("/fonts/Metropolis-Bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+.g1-sheet {
+  box-shadow: 0 8px 32px rgba(7, 34, 73, 0.12);
+}
+
+.g1-nos-logo {
+  display: block;
+  width: 90px;
+  height: 22px;
+  flex-shrink: 0;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.g1-nos-logo img,
+.g1-nos-logo svg {
+  width: 90px !important;
+  height: 22px !important;
+  max-width: 90px;
+  max-height: 22px;
+  display: block;
+}
+
+.g1-print-root {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 794px;
+  height: 1123px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.g1-print-root .g1-sheet {
+  box-shadow: none;
+}
+
+table.g1-tb {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 17px;
+  color: #111111;
+}
+
+table.g1-tb th {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+  text-align: left;
+  padding: 0 8px 4px 0;
+  border-bottom: 1.5px solid #072249;
+  white-space: nowrap;
+}
+
+table.g1-tb td {
+  padding: 3px 8px 2px 0;
+  border-bottom: 1px solid #E0E0E0;
+  vertical-align: middle;
+}
+
+table.g1-tb th:last-child,
+table.g1-tb td:last-child {
+  padding-right: 0;
+}
+
+table.g1-tb .r {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+table.g1-tb tr.tot td {
+  font-weight: 700;
+  border-bottom: 0;
+  border-top: 1.5px solid #072249;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .g1-no-print,
+  .g1-screen-preview {
+    display: none !important;
+  }
+
+  .g1-print-root,
+  .g1-print-root * {
+    visibility: visible !important;
+  }
+
+  .g1-print-root {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    opacity: 1 !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+  }
+
+  .g1-sheet {
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

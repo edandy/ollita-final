@@ -21,7 +21,7 @@ import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 import {
-  Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, Layers, LogOut,
+  Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, Layers, LogOut, FileBarChart,
 } from "lucide-react";
 
 const NAV: { key: AdminSection; label: string; icon: typeof LayoutGrid }[] = [
@@ -30,6 +30,7 @@ const NAV: { key: AdminSection; label: string; icon: typeof LayoutGrid }[] = [
   { key: "gestores", label: "Gestores", icon: Users },
   { key: "usuarios", label: "Usuarios", icon: UserCog },
   { key: "grupos", label: "Grupos", icon: Layers },
+  { key: "reportes", label: "Reportes", icon: FileBarChart },
   { key: "actividad", label: "Uso diario", icon: CalendarCheck },
 ];
 
@@ -53,6 +54,10 @@ const TITULOS: Record<AdminSection, { titulo: string; sub: (t: ReturnType<typeof
   grupos: {
     titulo: "Grupos",
     sub: (_t, n = 0) => n === 1 ? "1 grupo de ollas" : `${n} grupos de ollas`,
+  },
+  reportes: {
+    titulo: "Reportes",
+    sub: () => "G1 · Raciones del grupo · lunes a sábado",
   },
   actividad: {
     titulo: "Uso diario",
@@ -157,8 +162,8 @@ function AdminLayout() {
         setActivityDays,
       }}
     >
-      <div className="min-h-screen flex bg-[#F0F0F0] text-bosque">
-        <aside className={`fixed inset-y-0 left-0 z-50 w-[280px] bg-bosque p-5 flex flex-col gap-8 transition-transform md:translate-x-0 ${menuAbierto ? "translate-x-0" : "-translate-x-full"}`}>
+      <div className="min-h-screen flex bg-[#F0F0F0] text-bosque print:bg-white print:block">
+        <aside className={`fixed inset-y-0 left-0 z-50 w-[280px] bg-bosque p-5 flex flex-col gap-8 transition-transform md:translate-x-0 print:hidden ${menuAbierto ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="flex items-start justify-between gap-2 px-2">
             <div className="flex flex-col gap-2">
               <img src={logoBlanco} alt="La Ollita" className="h-[34px] w-auto self-start" />
@@ -210,11 +215,11 @@ function AdminLayout() {
         </aside>
 
         {menuAbierto && (
-          <div className="fixed inset-0 bg-bosque/55 z-40 md:hidden" onClick={() => setMenuAbierto(false)} />
+          <div className="fixed inset-0 bg-bosque/55 z-40 md:hidden print:hidden" onClick={() => setMenuAbierto(false)} />
         )}
 
-        <div className="flex-1 min-w-0 flex flex-col md:ml-[280px]">
-          <header className="bg-white border-b border-[#E0E0E0] px-4 sm:px-9 py-5 flex items-end justify-between gap-4 flex-wrap sticky top-0 z-30">
+        <div className="flex-1 min-w-0 flex flex-col md:ml-[280px] print:ml-0">
+          <header className="bg-white border-b border-[#E0E0E0] px-4 sm:px-9 py-5 flex items-end justify-between gap-4 flex-wrap sticky top-0 z-30 print:hidden">
             <div className="flex items-start gap-3 min-w-0">
               <button
                 type="button"
@@ -253,7 +258,7 @@ function AdminLayout() {
             </div>
           </header>
 
-          <main className="flex-1 px-4 sm:px-9 py-7 pb-14 flex flex-col gap-6">
+          <main className="flex-1 px-4 sm:px-9 py-7 pb-14 flex flex-col gap-6 print:p-0 print:pb-0">
             {canOpenAdminSection({ isAdmin, isSupervisor, section }) ? <Outlet /> : null}
           </main>
         </div>

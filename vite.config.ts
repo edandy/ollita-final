@@ -14,7 +14,7 @@ export default defineConfig({
   },
   vite: {
     optimizeDeps: {
-      include: ["@tanstack/router-core/ssr/client"],
+      include: ["@tanstack/router-core/ssr/client", "html2canvas", "jspdf"],
     },
   },
 });
