@@ -11,6 +11,10 @@ import {
   g2PdfFilename,
   g3PdfFilename,
   g4PdfFilename,
+  g5PdfFilename,
+  g6PdfFilename,
+  pdfPage,
+  sheetSize,
 } from "./g1-pdf";
 
 describe("g1PdfFilename", () => {
@@ -45,6 +49,35 @@ describe("g4PdfFilename", () => {
   it("names the padrón report after the group and the month or year", () => {
     expect(g4PdfFilename("VES Sur Demo", "month", "2026-09-01")).toBe("G4-Padron-VES-Sur-Demo-2026-09.pdf");
     expect(g4PdfFilename("VES Sur Demo", "year", "2026-01-01")).toBe("G4-Padron-VES-Sur-Demo-2026.pdf");
+  });
+});
+
+describe("g5PdfFilename", () => {
+  it("names the team report after the group and month", () => {
+    expect(g5PdfFilename("VES Sur Demo", "2026-09-01")).toBe("G5-Equipo-VES-Sur-Demo-2026-09.pdf");
+  });
+});
+
+describe("g6PdfFilename", () => {
+  it("names the alerts report after the group and week", () => {
+    expect(g6PdfFilename("VES Sur Demo", "2026-10-19", "2026-10-24")).toBe(
+      "G6-Alertas-VES-Sur-Demo-2026-10-19_2026-10-24.pdf",
+    );
+  });
+});
+
+describe("landscape sheets", () => {
+  it("swaps the A4 sides in pixels and in the PDF page", () => {
+    expect(sheetSize("portrait")).toEqual({ width: 794, height: 1123 });
+    expect(sheetSize("landscape")).toEqual({ width: 1123, height: 794 });
+    expect(pdfPage(sheetSize("portrait"))).toEqual({ orientation: "portrait", width: 210, height: 297 });
+    expect(pdfPage(sheetSize("landscape"))).toEqual({ orientation: "landscape", width: 297, height: 210 });
+  });
+
+  it("draws the svg at the landscape size", () => {
+    const svg = buildG1SheetSvg("<div>x</div>", "", sheetSize("landscape"));
+    expect(svg).toContain('width="1123" height="794"');
+    expect(svg).toContain("width:1123px;height:794px");
   });
 });
 

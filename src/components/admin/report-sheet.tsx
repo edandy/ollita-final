@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import logoNos from "@/assets/logo-nos.svg";
-import { G1_NOS_LOGO_HEIGHT, G1_NOS_LOGO_WIDTH, G1_SHEET_HEIGHT, G1_SHEET_WIDTH } from "@/lib/g1-pdf";
+import { G1_NOS_LOGO_HEIGHT, G1_NOS_LOGO_WIDTH, sheetSize, type SheetOrientation } from "@/lib/g1-pdf";
 import { todayISO } from "@/lib/dates";
 
 export function displayName(nombre: string) {
@@ -55,27 +55,30 @@ export function ChipIcon({ name, size }: { name: "visibility" | "groups"; size: 
 export function ReportPreview({
   renderSheet,
   sheetRef,
+  orientation = "portrait",
 }: {
   renderSheet: (ref?: Ref<HTMLElement | null>) => ReactNode;
   sheetRef?: Ref<HTMLElement | null>;
+  orientation?: SheetOrientation;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const size = sheetSize(orientation);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const update = () => setScale(Math.min(1, host.clientWidth / G1_SHEET_WIDTH));
+    const update = () => setScale(Math.min(1, host.clientWidth / size.width));
     update();
     const ro = new ResizeObserver(update);
     ro.observe(host);
     return () => ro.disconnect();
-  }, []);
+  }, [size.width]);
 
   return (
     <>
       <div ref={hostRef} className="g1-screen-preview w-full">
-        <div style={{ height: G1_SHEET_HEIGHT * scale }}>
+        <div style={{ height: size.height * scale }}>
           <div className="origin-top-left" style={{ transform: `scale(${scale})` }}>
             {renderSheet()}
           </div>
@@ -93,6 +96,8 @@ export function ReportSheet({
   title,
   cadence = "Semanal",
   footerNote = "Consolidado sin datos de caja",
+  chip = "Versión supervisión",
+  orientation = "portrait",
   gap = 12,
   sheetRef,
   children,
@@ -101,18 +106,123 @@ export function ReportSheet({
   title: string;
   cadence?: "Semanal" | "Mensual" | "Mensual y anual";
   footerNote?: string;
+  chip?: string;
+  orientation?: SheetOrientation;
   gap?: number;
   sheetRef?: Ref<HTMLElement | null>;
   children: ReactNode;
 }) {
+  const size = sheetSize(orientation);
+  // The landscape mockup fits brand, title, chip and logo in one header row.
+  const compact = orientation === "landscape";
+
+  const pill = (
+    <span
+      style={{
+        ...(compact ? { alignSelf: "flex-start" } : {}),
+        padding: "2px 10px",
+        background: "#2656C9",
+        borderRadius: 9999,
+        fontSize: 12,
+        lineHeight: "16px",
+        fontWeight: 700,
+        color: "#FFFFFF",
+        whiteSpace: "nowrap",
+      }}
+    >
+      Consolidado de grupo
+    </span>
+  );
+  const brand = (
+    <span
+      style={{
+        fontSize: compact ? 22 : 26,
+        lineHeight: compact ? "26px" : "32px",
+        fontWeight: 400,
+        color: "#072249",
+      }}
+    >
+      La Ollita
+    </span>
+  );
+  const logo = (
+    <span className="g1-nos-logo">
+      <img
+        src={logoNos}
+        alt="NOS Finance"
+        width={G1_NOS_LOGO_WIDTH}
+        height={G1_NOS_LOGO_HEIGHT}
+        style={{ width: G1_NOS_LOGO_WIDTH, height: G1_NOS_LOGO_HEIGHT, display: "block", objectFit: "contain" }}
+      />
+    </span>
+  );
+  const heading = (
+    <div style={{ display: "flex", flexDirection: "column", gap: compact ? 2 : 4 }}>
+      <span
+        style={{
+          fontSize: 12,
+          lineHeight: "16px",
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "#2656C9",
+        }}
+      >
+        Reporte {code} · {cadence} · Grupo de ollas
+      </span>
+      <h1
+        style={{
+          margin: 0,
+          fontSize: compact ? 26 : 28,
+          lineHeight: compact ? "32px" : "34px",
+          fontWeight: 700,
+          letterSpacing: "-0.02em",
+          color: "#072249",
+          fontFamily: "Metropolis, 'Proxima Nova', sans-serif",
+        }}
+      >
+        {title}
+      </h1>
+    </div>
+  );
+  const chipEl = (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "5px 12px",
+        border: "1px solid #475569",
+        borderRadius: 9999,
+        fontSize: 12,
+        lineHeight: "16px",
+        fontWeight: 600,
+        color: "#475569",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <ChipIcon name="visibility" size={16} />
+      {chip}
+    </span>
+  );
+  const rule = {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 24,
+    paddingBottom: 10,
+    borderBottom: "2px solid #072249",
+  } as const;
+
   return (
     <article
       ref={sheetRef}
       className="g1-sheet"
+      data-orientation={orientation}
       style={{
-        width: G1_SHEET_WIDTH,
-        height: G1_SHEET_HEIGHT,
-        minHeight: G1_SHEET_HEIGHT,
+        width: size.width,
+        height: size.height,
+        minHeight: size.height,
         boxSizing: "border-box",
         background: "#FFFFFF",
         fontFamily: "Metropolis, 'Proxima Nova', 'Helvetica Neue', Arial, sans-serif",
@@ -136,111 +246,46 @@ export function ReportSheet({
           padding: "32px 48px 0 48px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              style={{
-                fontSize: 26,
-                lineHeight: "32px",
-                fontWeight: 400,
-                color: "#072249",
-              }}
-            >
-              La Ollita
-            </span>
-            <span
-              style={{
-                padding: "2px 10px",
-                background: "#2656C9",
-                borderRadius: 9999,
-                fontSize: 12,
-                lineHeight: "16px",
-                fontWeight: 700,
-                color: "#FFFFFF",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Consolidado de grupo
-            </span>
+        {compact ? (
+          <div style={rule}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 28 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {brand}
+                {pill}
+              </div>
+              {heading}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              {chipEl}
+              {logo}
+            </div>
           </div>
-          <span className="g1-nos-logo">
-            <img
-              src={logoNos}
-              alt="NOS Finance"
-              width={G1_NOS_LOGO_WIDTH}
-              height={G1_NOS_LOGO_HEIGHT}
-              style={{ width: G1_NOS_LOGO_WIDTH, height: G1_NOS_LOGO_HEIGHT, display: "block", objectFit: "contain" }}
-            />
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            gap: 24,
-            paddingBottom: 10,
-            borderBottom: "2px solid #072249",
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span
-              style={{
-                fontSize: 12,
-                lineHeight: "16px",
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "#2656C9",
-              }}
-            >
-              Reporte {code} · {cadence} · Grupo de ollas
-            </span>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 28,
-                lineHeight: "34px",
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                color: "#072249",
-                fontFamily: "Metropolis, 'Proxima Nova', sans-serif",
-              }}
-            >
-              {title}
-            </h1>
-          </div>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "5px 12px",
-              border: "1px solid #475569",
-              borderRadius: 9999,
-              fontSize: 12,
-              lineHeight: "16px",
-              fontWeight: 600,
-              color: "#475569",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <ChipIcon name="visibility" size={16} />
-            Versión supervisión
-          </span>
-        </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {brand}
+                {pill}
+              </div>
+              {logo}
+            </div>
+            <div style={rule}>
+              {heading}
+              {chipEl}
+            </div>
+          </>
+        )}
 
         {children}
       </div>
 
-      <footer style={{ padding: "10px 48px 40px 48px", flexShrink: 0 }}>
+      <footer style={{ padding: `${compact ? 8 : 10}px 48px 40px 48px`, flexShrink: 0 }}>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             gap: 16,
-            paddingTop: 10,
+            paddingTop: compact ? 8 : 10,
             borderTop: "1px solid #E0E0E0",
             fontSize: 12,
             lineHeight: "16px",
@@ -256,14 +301,22 @@ export function ReportSheet({
   );
 }
 
-export function MetaBand({ columns, children }: { columns: string; children: ReactNode }) {
+export function MetaBand({
+  columns,
+  padding = "10px 16px",
+  children,
+}: {
+  columns: string;
+  padding?: string;
+  children: ReactNode;
+}) {
   return (
     <div
       style={{
         display: "grid",
         gridTemplateColumns: columns,
         gap: 16,
-        padding: "10px 16px",
+        padding,
         background: "#D4E7FF",
         borderRadius: 12,
       }}

@@ -35,8 +35,15 @@ describe("validateCreateBeneficiary", () => {
       photoUrl: null,
       careGroup: null,
       birthDate: null,
+      sex: null,
       comedor_id: "olla-1",
     });
+  });
+
+  it("keeps sex optional and rejects unknown values", () => {
+    expect(validateCreateBeneficiary({ ...valid, sex: "" }).sex).toBeNull();
+    expect(validateCreateBeneficiary({ ...valid, sex: "female" }).sex).toBe("female");
+    expect(() => validateCreateBeneficiary({ ...valid, sex: "x" })).toThrow(/sexo/);
   });
 
   it("keeps the care group and birth date optional", () => {
@@ -171,9 +178,10 @@ describe("beneficiaryRow", () => {
 
   it("maps the care group and birth date, and leaves them alone when importing", () => {
     const data = validateCreateBeneficiary({ ...valid, careGroup: "child", birthDate: "2021-05-10" });
-    expect(beneficiaryRow(data)).toMatchObject({ care_group: "child", birth_date: "2021-05-10" });
+    expect(beneficiaryRow(data)).toMatchObject({ care_group: "child", birth_date: "2021-05-10", sex: null });
     const imported = beneficiaryRow(data, { includePhoto: false });
     expect(imported).not.toHaveProperty("care_group");
+    expect(imported).not.toHaveProperty("sex");
     expect(imported).not.toHaveProperty("birth_date");
   });
 });

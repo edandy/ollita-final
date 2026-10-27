@@ -28,6 +28,7 @@ export type Database = {
           foto_url: string | null
           id: string
           nombre_completo: string
+          sex: Database["public"]["Enums"]["sex"] | null
           subtipo_caso_social:
             | Database["public"]["Enums"]["beneficiario_subtipo"]
             | null
@@ -47,6 +48,7 @@ export type Database = {
           foto_url?: string | null
           id?: string
           nombre_completo: string
+          sex?: Database["public"]["Enums"]["sex"] | null
           subtipo_caso_social?:
             | Database["public"]["Enums"]["beneficiario_subtipo"]
             | null
@@ -66,6 +68,7 @@ export type Database = {
           foto_url?: string | null
           id?: string
           nombre_completo?: string
+          sex?: Database["public"]["Enums"]["sex"] | null
           subtipo_caso_social?:
             | Database["public"]["Enums"]["beneficiario_subtipo"]
             | null
@@ -1179,6 +1182,7 @@ export type Database = {
       insumo_unidad: "kg" | "L" | "unid"
       metodo_pago: "efectivo" | "yape" | "plin" | "tarjeta" | "otro"
       movimiento_tipo: "ingreso" | "salida"
+      sex: "female" | "male"
       reserva_estado: "pendiente" | "recogida" | "no_recogida"
       tiempo_menu: "entrada" | "fondo" | "postre" | "bebida"
       transaccion_categoria:
@@ -1353,6 +1357,7 @@ export const Constants = {
       metodo_pago: ["efectivo", "yape", "plin", "tarjeta", "otro"],
       movimiento_tipo: ["ingreso", "salida"],
       reserva_estado: ["pendiente", "recogida", "no_recogida"],
+      sex: ["female", "male"],
       tiempo_menu: ["entrada", "fondo", "postre", "bebida"],
       transaccion_categoria: [
         "venta_menus",

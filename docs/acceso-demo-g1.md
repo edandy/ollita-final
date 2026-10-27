@@ -72,3 +72,51 @@ El seeder arma el padrón de las cuatro ollas sembradas:
 El padrón se guarda con upsert por olla y DNI, así que correr el seeder de nuevo no duplica personas.
 
 Mira el reporte en `/admin/reportes` → **G4 · Padrón del grupo**, con el selector Mes/Año.
+
+## Equipo y turnos (G5)
+
+El G5 es mensual y no muestra nombres de socias. Las horas se calculan con 5 h por socia en cada turno (`G5_HOURS_PER_SHIFT`). Se valorizan a S/ 5.43 por hora, que es la remuneración mínima entre 208 h (`G5_HOURLY_VALUE`).
+
+El seeder deja:
+
+- **Días de atención:** las cinco ollas atienden de lunes a sábado, igual que los menús sembrados.
+- **Directiva:** cada olla tiene su presidenta. `BOARD_STAFF` suma tesoreras y almaceneras, todas con DNI y PIN 1234. Cristo Rey y Las Flores no tienen almacenera y Santa María no tiene tesorera. La tesorera de Cristo Rey es hombre, así que "Mujeres en cargos directivos" no llega al 100%.
+- **Sexo:** se registra en el padrón (campo nuevo). Lo tienen los beneficiarios de siempre, el padrón generado y la directiva.
+- **Cronograma:** turnos de 4 a 6 socias del padrón de cada olla. Carmen cubre todos los días; Cristo Rey, cerca del 64% (sale en rojo); Santa María, el 77%; Las Flores, el 92%. Villa Hermosa no tiene turnos y sale "Sin datos".
+
+Mira el reporte en `/admin/reportes` → **G5 · Equipo y turnos del grupo**, con el selector de mes.
+
+## Alertas del grupo (G6)
+
+El G6 es semanal (lunes a sábado) y sale en hoja apaisada. Si la semana está en curso, corta en el día de hoy. Pone a cada comedor en un semáforo:
+
+- **Atender:** 2 o más días sin menú, cajas sin cerrar o insumos en alerta.
+- **Revisar:** cualquier otra alerta.
+- **Al día:** todo en cero.
+- **Sin datos:** el comedor no registró menús ni cajas en la semana.
+
+Qué cuenta cada columna:
+
+| Columna | Qué cuenta |
+|---|---|
+| Días sin menú | Días de atención sin menú publicado. |
+| Cajas sin cerrar | Días de atención ya pasados con la caja abierta o sin caja. |
+| Insumos en alerta | Insumos con menos de 4 días de cobertura, con la misma regla que el G2. |
+| Padrón vencido | Personas activas con la vigencia vencida. |
+| Registros pendientes | Reservas que siguen en estado pendiente en un día ya pasado. |
+
+El seeder (`WEEK_ALERTS`) deja dos semanas distintas.
+
+**Semana anterior:**
+
+| Comedor | Estado | Por qué |
+|---|---|---|
+| Cristo Rey | Atender | 2 días sin menú, 2 cajas abiertas, 7 carnés vencidos y 9 entregas sin confirmar |
+| Santa María | Revisar | 1 caja abierta, 2 vencidos y 3 pendientes |
+| Las Flores | Revisar | 1 caja abierta, 3 vencidos y 2 pendientes |
+| Virgen del Carmen | Al día | — |
+| Villa Hermosa | Sin datos | — |
+
+**Semana actual:** Cristo Rey, Santa María y Las Flores salen en Atender por sus insumos en alerta (`SUPPLY_DAYS`). Las cajas anteriores a hoy están cerradas. Los sobrantes de los días pasados quedan como `no_recogida`.
+
+Mira el reporte en `/admin/reportes` → **G6 · Alertas del grupo**, con el selector de semana.

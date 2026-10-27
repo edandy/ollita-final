@@ -21,6 +21,11 @@ export const CARE_GROUP_LABEL: Record<CareGroup, string> = {
   lactating: "Lactante",
 };
 
+export const SEXES = ["female", "male"] as const;
+export type Sex = (typeof SEXES)[number];
+
+export const SEX_LABEL: Record<Sex, string> = { female: "Mujer", male: "Hombre" };
+
 /** Groups whose report rows split by age, so they need a birth date. */
 const CARE_GROUPS_BY_AGE: readonly CareGroup[] = ["older_adult", "child"];
 
@@ -36,6 +41,7 @@ export type CreateBeneficiaryInput = {
   photoUrl: string | null;
   careGroup: CareGroup | null;
   birthDate: string | null;
+  sex: Sex | null;
   comedor_id: string;
 };
 
@@ -86,6 +92,13 @@ function parseCare(careGroupRaw: string | undefined, birthDateRaw: string | unde
   return { careGroup, birthDate };
 }
 
+function parseSex(value: string | undefined) {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  if (!(SEXES as readonly string[]).includes(raw)) throw new Error("Elige el sexo");
+  return raw as Sex;
+}
+
 function parseCarga(value: string | number | undefined) {
   const n = Math.trunc(Number(value ?? 0));
   if (!Number.isFinite(n) || n < 0) return 0;
@@ -108,6 +121,7 @@ function parseSharedFields(input: {
   photoUrl?: string | null;
   careGroup?: string;
   birthDate?: string;
+  sex?: string;
   comedor_id: string;
 }) {
   const nombre = input.nombre.trim();
@@ -144,6 +158,7 @@ function parseSharedFields(input: {
     validUntil,
     photoUrl: parsePhotoUrl(input.photoUrl),
     ...parseCare(input.careGroup, input.birthDate),
+    sex: parseSex(input.sex),
     comedor_id: input.comedor_id,
   };
 }
@@ -160,6 +175,7 @@ export function validateCreateBeneficiary(input: {
   photoUrl?: string | null;
   careGroup?: string;
   birthDate?: string;
+  sex?: string;
   comedor_id: string;
 }): CreateBeneficiaryInput {
   return {
@@ -180,6 +196,7 @@ export function validateUpdateBeneficiary(input: {
   photoUrl?: string | null;
   careGroup?: string;
   birthDate?: string;
+  sex?: string;
   comedor_id: string;
 }): UpdateBeneficiaryInput {
   if (!input.id) throw new Error("Falta la persona a editar");
@@ -213,9 +230,9 @@ export function beneficiaryRow(
     direccion: extra?.direccion ?? null,
     activo: extra?.activo ?? true,
   };
-  // Imports only carry the sheet's columns, so photo, care group and birth date stay as they are.
+  // Imports only carry the sheet's columns, so photo, care group, birth date and sex stay as they are.
   if (extra?.includePhoto === false) return row;
-  return { ...row, foto_url: data.photoUrl, care_group: data.careGroup, birth_date: data.birthDate };
+  return { ...row, foto_url: data.photoUrl, care_group: data.careGroup, birth_date: data.birthDate, sex: data.sex };
 }
 
 export function staffToPadronRow(input: {

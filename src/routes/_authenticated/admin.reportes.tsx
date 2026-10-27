@@ -6,10 +6,20 @@ import { G1ReportPreview } from "@/components/admin/g1-report";
 import { G2ReportPreview } from "@/components/admin/g2-report";
 import { G3ReportPreview } from "@/components/admin/g3-report";
 import { G4ReportPreview } from "@/components/admin/g4-report";
+import { G5ReportPreview } from "@/components/admin/g5-report";
+import { G6ReportPreview } from "@/components/admin/g6-report";
 import { useAdminLayout } from "@/lib/admin-layout-context";
 import { todayISO } from "@/lib/dates";
 import { shiftWeek, weekRangeMonSat, type G1Report } from "@/lib/g1";
-import { downloadG1Pdf, g1PdfFilename, g2PdfFilename, g3PdfFilename, g4PdfFilename } from "@/lib/g1-pdf";
+import {
+  downloadG1Pdf,
+  g1PdfFilename,
+  g2PdfFilename,
+  g3PdfFilename,
+  g4PdfFilename,
+  g5PdfFilename,
+  g6PdfFilename,
+} from "@/lib/g1-pdf";
 import { getG1Report, listReportGroups } from "@/lib/g1.functions";
 import type { G2Report } from "@/lib/g2";
 import { getG2Report } from "@/lib/g2.functions";
@@ -17,6 +27,10 @@ import { monthRange, shiftMonth, type G3Report } from "@/lib/g3";
 import { getG3Report } from "@/lib/g3.functions";
 import { shiftYear, yearRange, type G4Mode, type G4Report } from "@/lib/g4";
 import { getG4Report } from "@/lib/g4.functions";
+import type { G5Report } from "@/lib/g5";
+import { getG5Report } from "@/lib/g5.functions";
+import type { G6Report } from "@/lib/g6";
+import { getG6Report } from "@/lib/g6.functions";
 import type { GroupRow } from "@/lib/groups.functions";
 import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
@@ -34,6 +48,8 @@ const REPORT_KINDS = [
   { value: "g2", label: "G2 · Almacén del grupo" },
   { value: "g3", label: "G3 · Rendimiento de insumos del grupo" },
   { value: "g4", label: "G4 · Padrón del grupo" },
+  { value: "g5", label: "G5 · Equipo y turnos del grupo" },
+  { value: "g6", label: "G6 · Alertas del grupo" },
 ] as const;
 
 type ReportKind = (typeof REPORT_KINDS)[number]["value"];
@@ -42,7 +58,9 @@ type LoadedReport =
   | { kind: "g1"; data: G1Report }
   | { kind: "g2"; data: G2Report }
   | { kind: "g3"; data: G3Report }
-  | { kind: "g4"; data: G4Report };
+  | { kind: "g4"; data: G4Report }
+  | { kind: "g5"; data: G5Report }
+  | { kind: "g6"; data: G6Report };
 
 type PeriodKind = "week" | "month" | "year";
 
@@ -59,6 +77,8 @@ function ReportesPage() {
   const fnG2 = useServerFn(getG2Report);
   const fnG3 = useServerFn(getG3Report);
   const fnG4 = useServerFn(getG4Report);
+  const fnG5 = useServerFn(getG5Report);
+  const fnG6 = useServerFn(getG6Report);
   const [kind, setKind] = useState<ReportKind>("g1");
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [groupId, setGroupId] = useState("");
@@ -73,7 +93,7 @@ function ReportesPage() {
   const { pending: exporting, run: runExport } = useSubmitLock();
 
   const week = weekRangeMonSat(weekStart);
-  const periodKind: PeriodKind = kind === "g3" ? "month" : kind === "g4" ? g4Mode : "week";
+  const periodKind: PeriodKind = kind === "g3" || kind === "g5" ? "month" : kind === "g4" ? g4Mode : "week";
   const periodLabel =
     periodKind === "year" ? yearRange(yearStart).label : periodKind === "month" ? monthRange(monthStart).label : week.label;
   const shiftPeriod = (step: number) => {
@@ -120,9 +140,19 @@ function ReportesPage() {
                 report: { kind: "g3", data: r.report },
                 emptyMessage: r.emptyMessage,
               }))
-            : fnG4({ data: { groupId, mode: g4Mode, start: g4Mode === "year" ? yearStart : monthStart } }).then(
-                (r) => ({ report: { kind: "g4", data: r.report }, emptyMessage: r.emptyMessage }),
-              );
+            : kind === "g4"
+              ? fnG4({ data: { groupId, mode: g4Mode, start: g4Mode === "year" ? yearStart : monthStart } }).then(
+                  (r) => ({ report: { kind: "g4", data: r.report }, emptyMessage: r.emptyMessage }),
+                )
+              : kind === "g5"
+                ? fnG5({ data: { groupId, monthStart } }).then((r) => ({
+                    report: { kind: "g5", data: r.report },
+                    emptyMessage: r.emptyMessage,
+                  }))
+                : fnG6({ data: { groupId, weekStart } }).then((r) => ({
+                    report: { kind: "g6", data: r.report },
+                    emptyMessage: r.emptyMessage,
+                  }));
     load
       .then((r) => {
         if (cancelled) return;
@@ -230,7 +260,11 @@ function ReportesPage() {
                       ? g2PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
                       : report.kind === "g3"
                         ? g3PdfFilename(report.data.groupName, report.data.month.from)
-                        : g4PdfFilename(report.data.groupName, report.data.period.mode, report.data.period.from);
+                        : report.kind === "g4"
+                          ? g4PdfFilename(report.data.groupName, report.data.period.mode, report.data.period.from)
+                          : report.kind === "g5"
+                            ? g5PdfFilename(report.data.groupName, report.data.month.from)
+                            : g6PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to);
                 await downloadG1Pdf(sheet, filename);
               } catch (err) {
                 console.error(err);
@@ -269,8 +303,12 @@ function ReportesPage() {
             <G2ReportPreview report={report.data} sheetRef={sheetRef} />
           ) : report.kind === "g3" ? (
             <G3ReportPreview report={report.data} sheetRef={sheetRef} />
-          ) : (
+          ) : report.kind === "g4" ? (
             <G4ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : report.kind === "g5" ? (
+            <G5ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : (
+            <G6ReportPreview report={report.data} sheetRef={sheetRef} />
           )}
         </div>
       )}

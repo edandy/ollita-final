@@ -16,12 +16,15 @@ import { crearBeneficiario, sincronizarEquipoEnPadron } from "@/lib/padron.funct
 import {
   CARE_GROUPS,
   CARE_GROUP_LABEL,
+  SEXES,
+  SEX_LABEL,
   canRemoveBeneficiary,
   friendlyCreateBeneficiaryError,
   padronStaffCargo,
   validateCreateBeneficiary,
   validateUpdateBeneficiary,
   type CareGroup,
+  type Sex,
 } from "@/lib/padron";
 import { todayISO } from "@/lib/dates";
 import { CARGO_LABEL, type Cargo } from "@/lib/permisos";
@@ -44,6 +47,7 @@ type B = {
   foto_url: string | null;
   care_group: CareGroup | null;
   birth_date: string | null;
+  sex: Sex | null;
 };
 
 const CAT_LABEL: Record<string, string> = {
@@ -485,6 +489,7 @@ function FormBenef({
   const [vigencia, setVigencia] = useState(benef?.vigencia_hasta ?? "");
   const [careGroup, setCareGroup] = useState<CareGroup | "">(benef?.care_group ?? "");
   const [birthDate, setBirthDate] = useState(benef?.birth_date ?? "");
+  const [sex, setSex] = useState<Sex | "">(benef?.sex ?? "");
   const [pin, setPin] = useState("");
   const [fotoUrl, setFotoUrl] = useState<string | null>(benef?.foto_url ?? null);
   const [subiendo, setSubiendo] = useState(false);
@@ -532,6 +537,7 @@ function FormBenef({
           photoUrl: fotoUrl,
           careGroup,
           birthDate,
+          sex,
           comedor_id: comedorId,
         });
         void run(async () => {
@@ -546,6 +552,7 @@ function FormBenef({
             foto_url: data.photoUrl,
             care_group: data.careGroup,
             birth_date: data.birthDate,
+            sex: data.sex,
           }).eq("id", data.id);
           if (error) {
             setErr(friendlyCreateBeneficiaryError(error.message));
@@ -570,6 +577,7 @@ function FormBenef({
         photoUrl: fotoUrl,
         careGroup,
         birthDate,
+        sex,
         comedor_id: comedorId,
       });
       void run(async () => {
@@ -587,6 +595,7 @@ function FormBenef({
               photoUrl: data.photoUrl,
               careGroup: data.careGroup ?? "",
               birthDate: data.birthDate ?? "",
+              sex: data.sex ?? "",
               comedor_id: data.comedor_id,
             },
           });
@@ -728,6 +737,23 @@ function FormBenef({
             )}
           </>
         )}
+        <div className="flex flex-col gap-2">
+          <span className="text-[15px] font-semibold text-[#072249]">Sexo</span>
+          <div className="grid grid-cols-3 gap-2">
+            {[{ key: "" as const, label: "Sin especificar" }, ...SEXES.map((key) => ({ key, label: SEX_LABEL[key] }))].map((o) => (
+              <button
+                key={o.key || "none"}
+                type="button"
+                onClick={() => setSex(o.key)}
+                className={`min-h-14 px-3 rounded-xl text-[16px] font-semibold text-[#072249] border ${
+                  sex === o.key ? "border-[#0F7BA8] bg-[#C5EBF9]" : "border-[#E0E0E0] bg-white"
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex flex-col gap-2">
           <span className="text-[15px] font-semibold text-[#072249]">Grupo de atención</span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

@@ -4,9 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 import { todayISO } from "../src/lib/dates";
 import { emailDeDni, claveDePin } from "../src/lib/dni-cuenta";
 import { G1_DEMO_KITCHEN_STAFF, G1_DEMO_PIN } from "../src/lib/g1-demo";
-import { weekRangeMonSat } from "../src/lib/g1";
+import { shiftWeek, weekRangeMonSat } from "../src/lib/g1";
 import { baselineRange, monthRange } from "../src/lib/g3";
-import { staffToPadronRow, type CareGroup } from "../src/lib/padron";
+import { staffToPadronRow, type CareGroup, type Sex } from "../src/lib/padron";
 import { CODE_ALPHABET, generateKitchenCode } from "../src/lib/reservas";
 
 const GROUP_NAME = "VES Sur Demo";
@@ -138,17 +138,54 @@ type DemoBeneficiary = {
   subtipo: "adulto_mayor" | "madre_soltera" | "otro" | null;
   careGroup: CareGroup | null;
   birthDate: string | null;
+  sex: Sex;
 };
 
 // In every seeded kitchen and picking up all week, so G1 shows them in each padrón.
 const BENEFICIARIES: DemoBeneficiary[] = [
-  { dni: SHARED_DNI, nombre: "Elena Ramos", categoria: "socia_familia", subtipo: null, careGroup: "lactating", birthDate: "1996-04-12" },
-  { dni: "88881112", nombre: "Pedro Vargas", categoria: "caso_social", subtipo: "adulto_mayor", careGroup: "older_adult", birthDate: "1948-08-20" },
-  { dni: "88881113", nombre: "Juana Díaz", categoria: "caso_social", subtipo: "madre_soltera", careGroup: "pregnant", birthDate: "1999-02-03" },
-  { dni: "88881114", nombre: "Mario Soto", categoria: "caso_social", subtipo: "otro", careGroup: "disability", birthDate: "1980-11-30" },
-  { dni: "88881115", nombre: "Ana Paredes", categoria: "publico_recurrente", subtipo: null, careGroup: "social_case", birthDate: "1975-06-15" },
-  { dni: "88881116", nombre: "Rosa Mendoza", categoria: "socia_familia", subtipo: null, careGroup: "older_adult", birthDate: "1958-01-09" },
+  { dni: SHARED_DNI, nombre: "Elena Ramos", categoria: "socia_familia", subtipo: null, careGroup: "lactating", birthDate: "1996-04-12", sex: "female" },
+  { dni: "88881112", nombre: "Pedro Vargas", categoria: "caso_social", subtipo: "adulto_mayor", careGroup: "older_adult", birthDate: "1948-08-20", sex: "male" },
+  { dni: "88881113", nombre: "Juana Díaz", categoria: "caso_social", subtipo: "madre_soltera", careGroup: "pregnant", birthDate: "1999-02-03", sex: "female" },
+  { dni: "88881114", nombre: "Mario Soto", categoria: "caso_social", subtipo: "otro", careGroup: "disability", birthDate: "1980-11-30", sex: "male" },
+  { dni: "88881115", nombre: "Ana Paredes", categoria: "publico_recurrente", subtipo: null, careGroup: "social_case", birthDate: "1975-06-15", sex: "female" },
+  { dni: "88881116", nombre: "Rosa Mendoza", categoria: "socia_familia", subtipo: null, careGroup: "older_adult", birthDate: "1958-01-09", sex: "female" },
 ];
+
+// G5: board members besides each kitchen's presidenta (G1_DEMO_KITCHEN_STAFF). Cristo Rey and Las Flores
+// have no almacenera and Santa María no tesorera, so G5 shows those boards as incomplete.
+const BOARD_STAFF: {
+  kitchenKey: "carmen" | "cristo" | "santa" | "flores";
+  nombre: string;
+  dni: string;
+  telefono: string;
+  cargo: "tesorera" | "almacenera";
+  sex: Sex;
+}[] = [
+  { kitchenKey: "carmen", nombre: "Lucía Ramos", dni: "88883111", telefono: "999888111", cargo: "tesorera", sex: "female" },
+  { kitchenKey: "carmen", nombre: "Gloria Ccahuana", dni: "88883112", telefono: "999888112", cargo: "almacenera", sex: "female" },
+  { kitchenKey: "cristo", nombre: "Julio Mendoza", dni: "88883121", telefono: "999888121", cargo: "tesorera", sex: "male" },
+  { kitchenKey: "santa", nombre: "Norma Huamán", dni: "88883131", telefono: "999888131", cargo: "almacenera", sex: "female" },
+  { kitchenKey: "flores", nombre: "Pilar Rojas", dni: "88883141", telefono: "999888141", cargo: "tesorera", sex: "female" },
+];
+
+// G5: share of service days with a shift in the cronograma; under 70% shows in red.
+const SHIFT_COVERAGE = { carmen: 1, cristo: 0.64, santa: 0.77, flores: 0.92 } as const;
+const SERVICE_DAYS = ["lun", "mar", "mie", "jue", "vie", "sab"];
+
+// G6: last week's alerts. Menus are skipped and cash left open on these indexes of last week's service
+// days; the first `expired` social cases have lapsed and `pending` pickups were never confirmed. This week
+// only today's cash is open, so the current week shows supply alerts alone.
+const WEEK_ALERTS: Record<"carmen" | "cristo" | "santa" | "flores", {
+  noMenuDays: number[];
+  openCashDays: number[];
+  expired: number;
+  pending: number;
+}> = {
+  carmen: { noMenuDays: [], openCashDays: [], expired: 0, pending: 0 },
+  cristo: { noMenuDays: [1, 3], openCashDays: [2, 4], expired: 7, pending: 9 },
+  santa: { noMenuDays: [], openCashDays: [0], expired: 2, pending: 3 },
+  flores: { noMenuDays: [], openCashDays: [5], expired: 3, pending: 2 },
+};
 
 // G4: generated padrón per seeded kitchen. phone, address and photo set the completeness the report
 // shows; unused is the share of people who never pick up, which G4 lists as "inactivos de hecho".
@@ -203,6 +240,7 @@ function generatedPadron(kitchenIndex: number, kitchenKey: keyof typeof PADRON, 
       careGroup,
       birthDate: `${year - age - 1}-${String((i % 12) + 1).padStart(2, "0")}-${String(((i * 3) % 27) + 1).padStart(2, "0")}`,
       carga: (i * 3) % 6,
+      sex: (careGroup === "pregnant" || careGroup === "lactating" ? "female" : i % 11 === 10 ? null : i % 3 === 1 ? "male" : "female") as Sex | null,
       activo: i % 13 !== 12,
       telefono: within(i, 37, cfg.phone) ? `9${dni}` : null,
       direccion: within(i, 53, cfg.address) ? `Mz. ${String.fromCharCode(65 + (i % 8))} Lt. ${i + 1}` : null,
@@ -251,6 +289,12 @@ function datesInRange(from: string, to: string) {
   return days;
 }
 
+function addDays(iso: string, days: number) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function isServiceDay(iso: string) {
   return new Date(`${iso}T12:00:00Z`).getUTCDay() !== 0;
 }
@@ -293,6 +337,14 @@ async function main() {
     return DISHES[i % rotation.dishes];
   };
   let codeSeq = 1;
+  const lastWeek = weekRangeMonSat(shiftWeek(week.from, -1));
+  const lastWeekDays = serviceDays.filter((d) => d >= lastWeek.from && d <= lastWeek.to);
+  const alertsOf = (key: string) => WEEK_ALERTS[key as keyof typeof WEEK_ALERTS];
+  const lastWeekDay = (key: string, field: "noMenuDays" | "openCashDays", fecha: string) =>
+    alertsOf(key)[field].includes(lastWeekDays.indexOf(fecha));
+  // Social cases carry a vigencia: lapsed before last week for G6's "padrón vencido", the rest until year end.
+  const lapsedOn = addDays(lastWeek.from, -12);
+  const yearEnd = `${today.slice(0, 4)}-12-31`;
 
   const kitchenIds: Record<string, string> = {};
   const kitchenCodes: Record<string, string> = {};
@@ -359,6 +411,13 @@ async function main() {
   );
   throwIf(linkErr, "asignar ollas al grupo");
 
+  // Menus are seeded Monday to Saturday, so the kitchens serve those days (G5 shift coverage).
+  const { error: daysErr } = await supabase
+    .from("comedores")
+    .update({ dias_atencion: SERVICE_DAYS })
+    .in("id", allKitchenIds);
+  throwIf(daysErr, "días de atención");
+
   const seededIds = KITCHENS.filter((k) => k.seed).map((k) => kitchenIds[k.key]!);
   const { error: delMenusErr } = await supabase
     .from("menus")
@@ -391,9 +450,17 @@ async function main() {
         subtipo_caso_social: b.subtipo,
         care_group: b.careGroup,
         birth_date: b.birthDate,
+        sex: b.sex,
         activo: true,
         carga_familiar: 0,
+        vigencia_hasta: b.categoria === "caso_social" ? yearEnd : null,
       }));
+    const expired = new Set(
+      generated[k.key as keyof typeof PADRON]
+        .filter((b) => b.activo && b.categoria === "caso_social")
+        .slice(0, alertsOf(k.key).expired)
+        .map((b) => b.dni),
+    );
     const own = padronOf(k.key as keyof typeof PADRON).map((b) => ({
         comedor_id: comedorId,
         nombre_completo: b.nombre,
@@ -402,16 +469,18 @@ async function main() {
         subtipo_caso_social: b.subtipo,
         care_group: b.careGroup,
         birth_date: b.birthDate,
+        sex: b.sex,
         activo: b.activo,
         carga_familiar: b.carga,
         telefono: b.telefono,
         direccion: b.direccion,
         foto_url: b.fotoUrl,
+        vigencia_hasta: b.categoria === "caso_social" ? (expired.has(b.dni) ? lapsedOn : yearEnd) : null,
         // Everyone else joined last year, so the yearly G4 only counts this month's entries as new.
         created_at: b.newThisMonth ? `${month.from}T15:00:00Z` : `${Number(today.slice(0, 4)) - 1}-11-15T15:00:00Z`,
       }));
     beneficiaryIds[k.key] = {};
-    for (const rows of [shared, own]) {
+    for (const rows of [shared, own] as Record<string, unknown>[][]) {
       const { data: saved, error } = await supabase
         .from("beneficiarios")
         .upsert(rows, { onConflict: "comedor_id,dni" })
@@ -448,7 +517,7 @@ async function main() {
         menu_id: string;
         comedor_id: string;
         cantidad: number;
-        estado: "recogida" | "pendiente";
+        estado: "recogida" | "pendiente" | "no_recogida";
         codigo: string;
         dni: string | null;
         beneficiario_id: string | null;
@@ -489,7 +558,8 @@ async function main() {
           menu_id: menu!.id,
           comedor_id: comedorId,
           cantidad: leftover,
-          estado: "pendiente",
+          // Past days are already settled; only today's and later reservations are still pending (G6).
+          estado: fecha < today ? "no_recogida" : "pendiente",
           codigo: `L${code}-${suffix(codeSeq++)}`,
           dni: null,
           beneficiario_id: null,
@@ -511,7 +581,7 @@ async function main() {
     const { data: rows, error: histErr } = await supabase
       .from("menus")
       .insert(
-        historyDays.map((fecha) => ({
+        historyDays.filter((fecha) => !lastWeekDay(k.key, "noMenuDays", fecha)).map((fecha) => ({
           comedor_id: comedorId,
           fecha,
           publicado: true,
@@ -555,7 +625,19 @@ async function main() {
         })),
       ];
     });
-    const { error: histResErr } = await supabase.from("reservas").insert(pickupRows);
+    // G6: last week's unconfirmed pickups, one serving each, spread over its menus.
+    const lastWeekMenus = (rows ?? []).filter((m) => m.fecha >= lastWeek.from && m.fecha <= lastWeek.to);
+    const pendingRows = Array.from({ length: alertsOf(k.key).pending }, (_, i) => ({
+      menu_id: lastWeekMenus[i % lastWeekMenus.length]!.id,
+      comedor_id: comedorId,
+      cantidad: 1,
+      estado: "pendiente" as const,
+      codigo: `L${code}-${suffix(codeSeq++)}`,
+      dni: null,
+      beneficiario_id: null,
+      nombre_comensal: "Entrega sin confirmar",
+    }));
+    const { error: histResErr } = await supabase.from("reservas").insert([...pickupRows, ...pendingRows]);
     throwIf(histResErr, `reservas anteriores ${k.nombre}`);
   }
 
@@ -607,6 +689,47 @@ async function main() {
     }
   }
 
+  // G6: one cash day per service day up to today, closed except today's and last week's open ones.
+  for (const k of KITCHENS.filter((x) => x.seed)) {
+    const rows = serviceDays
+      .filter((d) => d <= today)
+      .map((fecha) => {
+        const sales = lastWeekDay(k.key, "noMenuDays", fecha) ? 0 : k.delivered * 5;
+        return {
+          comedor_id: kitchenIds[k.key]!,
+          fecha,
+          cerrado: fecha < today && !lastWeekDay(k.key, "openCashDays", fecha),
+          total_ingresos: sales,
+          total_egresos: 0,
+          ganancia: sales,
+        };
+      });
+    const { error: cashErr } = await supabase.from("caja_dias").upsert(rows, { onConflict: "comedor_id,fecha" });
+    throwIf(cashErr, `caja ${k.nombre}`);
+  }
+
+  // G5: cronograma since the history start. Each kitchen staffs its shifts from its own padrón and skips
+  // days per SHIFT_COVERAGE; Villa Hermosa has none, so it shows as "Sin datos".
+  const { error: delShiftsErr } = await supabase
+    .from("cronograma")
+    .delete()
+    .in("comedor_id", allKitchenIds)
+    .gte("fecha", historyStart)
+    .lte("fecha", week.to);
+  throwIf(delShiftsErr, "borrar cronograma demo");
+  for (const k of KITCHENS.filter((x) => x.seed)) {
+    const key = k.key as keyof typeof PADRON;
+    const pool = generated[key].filter((b) => b.activo).slice(0, 12).map((b) => b.nombre);
+    const rows = serviceDays.flatMap((fecha, dayIndex) => {
+      if (!within(dayIndex + 1, 37, SHIFT_COVERAGE[key])) return [];
+      const size = 4 + (dayIndex % 3);
+      const socias = [...new Set(Array.from({ length: size }, (_, j) => pool[(dayIndex * size + j) % pool.length]!))];
+      return [{ comedor_id: kitchenIds[k.key]!, fecha, socias, directiva_de_turno: null, notas: "g1-demo" }];
+    });
+    const { error: shiftErr } = await supabase.from("cronograma").insert(rows);
+    throwIf(shiftErr, `cronograma ${k.nombre}`);
+  }
+
   const { data: authPage, error: listErr } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
   throwIf(listErr, "listar usuarios");
   const users = authPage?.users ?? [];
@@ -655,7 +778,11 @@ async function main() {
     throwIf(assignErr, `asignar ollas ${s.email}`);
   }
 
-  for (const staff of G1_DEMO_KITCHEN_STAFF) {
+  const kitchenStaff = [
+    ...G1_DEMO_KITCHEN_STAFF.map((st) => ({ ...st, sex: "female" as Sex })),
+    ...BOARD_STAFF,
+  ];
+  for (const staff of kitchenStaff) {
     const comedorId = kitchenIds[staff.kitchenKey];
     if (!comedorId) throw new Error(`Falta olla ${staff.kitchenKey}`);
     const email = emailDeDni(staff.dni);
@@ -724,14 +851,18 @@ async function main() {
       .maybeSingle();
     throwIf(padFindErr, `buscar padrón gestora ${staff.dni}`);
     if (!existingPadron) {
-      const { error: padErr } = await supabase.from("beneficiarios").insert(padron);
+      const { error: padErr } = await supabase.from("beneficiarios").insert({ ...padron, sex: staff.sex });
       throwIf(padErr, `padrón gestora ${staff.dni}`);
+    } else {
+      const { error: sexErr } = await supabase.from("beneficiarios").update({ sex: staff.sex }).eq("id", existingPadron.id);
+      throwIf(sexErr, `sexo gestora ${staff.dni}`);
     }
   }
 
-  console.log("\nDemo G1, G2 y G3 listo en el Supabase de .env.local\n");
+  console.log("\nDemo G1 a G6 listo en el Supabase de .env.local\n");
   console.log(`Grupo:   ${GROUP_NAME}`);
   console.log(`Semana:  ${week.label} (${week.from} a ${week.to})`);
+  console.log(`G6:      semana anterior ${lastWeek.label} con alertas de menú, caja y entregas`);
   console.log("Ollas:   " + KITCHENS.map((k) => k.nombre.replace(PREFIX, "")).join(", "));
   console.log("\nSupervisoras — /auth con correo, luego /admin/reportes:\n");
   for (const s of SUPERVISORS) {
@@ -741,10 +872,10 @@ async function main() {
     console.log(`    clave   ${DEMO_PASSWORD}\n`);
   }
   console.log("Gestoras — /auth con DNI + PIN, luego /panel:\n");
-  for (const staff of G1_DEMO_KITCHEN_STAFF) {
+  for (const staff of kitchenStaff) {
     const kitchen = KITCHENS.find((k) => k.key === staff.kitchenKey)!;
     console.log(`  ${kitchen.nombre.replace(PREFIX, "")}  (${kitchenCodes[staff.kitchenKey]})`);
-    console.log(`    gestora  ${staff.nombre}`);
+    console.log(`    ${staff.cargo.padEnd(8)} ${staff.nombre}`);
     console.log(`    DNI      ${staff.dni}`);
     console.log(`    PIN      ${G1_DEMO_PIN}\n`);
   }

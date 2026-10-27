@@ -1,6 +1,22 @@
 export const G1_SHEET_WIDTH = 794;
 export const G1_SHEET_HEIGHT = 1123;
 export const G1_NOS_LOGO_WIDTH = 90;
+
+export type SheetOrientation = "portrait" | "landscape";
+export type SheetSize = { width: number; height: number };
+
+export function sheetSize(orientation: SheetOrientation): SheetSize {
+  return orientation === "landscape"
+    ? { width: G1_SHEET_HEIGHT, height: G1_SHEET_WIDTH }
+    : { width: G1_SHEET_WIDTH, height: G1_SHEET_HEIGHT };
+}
+
+/** The A4 page, in mm, that fits a sheet of this size. */
+export function pdfPage(size: SheetSize) {
+  return size.width > size.height
+    ? { orientation: "landscape" as const, width: 297, height: 210 }
+    : { orientation: "portrait" as const, width: 210, height: 297 };
+}
 export const G1_NOS_LOGO_HEIGHT = 22;
 
 export function g1ImageDisplaySize(img: {
@@ -115,11 +131,19 @@ export function g3PdfFilename(groupName: string, monthFrom: string) {
   return `G3-Rendimiento-${slugify(groupName)}-${monthFrom.slice(0, 7)}.pdf`;
 }
 
+export function g5PdfFilename(groupName: string, monthFrom: string) {
+  return `G5-Equipo-${slugify(groupName)}-${monthFrom.slice(0, 7)}.pdf`;
+}
+
+export function g6PdfFilename(groupName: string, weekFrom: string, weekTo: string) {
+  return `G6-Alertas-${slugify(groupName)}-${weekFrom}_${weekTo}.pdf`;
+}
+
 export function g4PdfFilename(groupName: string, mode: "month" | "year", start: string) {
   return `G4-Padron-${slugify(groupName)}-${start.slice(0, mode === "year" ? 4 : 7)}.pdf`;
 }
 
-function openPrintFrame() {
+function openPrintFrame(size: SheetSize) {
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
   iframe.setAttribute("title", "Exportar reporte");
@@ -127,8 +151,8 @@ function openPrintFrame() {
     position: "fixed",
     left: "0",
     top: "0",
-    width: `${G1_SHEET_WIDTH}px`,
-    height: `${G1_SHEET_HEIGHT}px`,
+    width: `${size.width}px`,
+    height: `${size.height}px`,
     border: "0",
     opacity: "0",
     pointerEvents: "none",
@@ -149,6 +173,7 @@ function openPrintFrame() {
       @font-face { font-family: "Metropolis"; src: url("${origin}/fonts/Metropolis-SemiBold.woff") format("woff"); font-weight: 600; font-style: normal; }
       @font-face { font-family: "Metropolis"; src: url("${origin}/fonts/Metropolis-Bold.woff") format("woff"); font-weight: 700; font-style: normal; }
       ${G1_PRINT_CSS}
+      ${pdfPage(size).orientation === "landscape" ? "@media print { @page { size: A4 landscape; } }" : ""}
     </style>
   </head><body></body></html>`);
   doc.close();
@@ -205,11 +230,12 @@ async function inlineImages(root: HTMLElement) {
   );
 }
 
-export function buildG1SheetSvg(sheetXhtml: string, css: string) {
+export function buildG1SheetSvg(sheetXhtml: string, css: string, size: SheetSize = sheetSize("portrait")) {
+  const { width, height } = size;
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${G1_SHEET_WIDTH}" height="${G1_SHEET_HEIGHT}" viewBox="0 0 ${G1_SHEET_WIDTH} ${G1_SHEET_HEIGHT}">` +
-    `<foreignObject x="0" y="0" width="${G1_SHEET_WIDTH}" height="${G1_SHEET_HEIGHT}">` +
-    `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${G1_SHEET_WIDTH}px;height:${G1_SHEET_HEIGHT}px;background:#ffffff">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
+    `<foreignObject x="0" y="0" width="${width}" height="${height}">` +
+    `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;background:#ffffff">` +
     `<style>${css}</style>${sheetXhtml}</div></foreignObject></svg>`
   );
 }
@@ -242,10 +268,10 @@ async function embeddedFontCss() {
 
 // The browser lays the sheet out itself (SVG foreignObject), so text sits exactly where
 // the preview shows it; html2canvas drew text lower than borders and clipped chips.
-async function rasterToPdf(sheet: HTMLElement, filename: string) {
+async function rasterToPdf(sheet: HTMLElement, filename: string, size: SheetSize) {
   const { jsPDF } = await import("jspdf");
   const sheetXhtml = new XMLSerializer().serializeToString(sheet);
-  const svg = buildG1SheetSvg(sheetXhtml, (await embeddedFontCss()) + G1_PRINT_CSS);
+  const svg = buildG1SheetSvg(sheetXhtml, (await embeddedFontCss()) + G1_PRINT_CSS, size);
   const img = new Image();
   img.decoding = "sync";
   await new Promise<void>((resolve, reject) => {
@@ -255,20 +281,22 @@ async function rasterToPdf(sheet: HTMLElement, filename: string) {
   });
   const scale = 2;
   const canvas = document.createElement("canvas");
-  canvas.width = G1_SHEET_WIDTH * scale;
-  canvas.height = G1_SHEET_HEIGHT * scale;
+  canvas.width = size.width * scale;
+  canvas.height = size.height * scale;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("No se pudo preparar la hoja");
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 210, 297);
+  const page = pdfPage(size);
+  const pdf = new jsPDF({ orientation: page.orientation, unit: "mm", format: "a4" });
+  pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, page.width, page.height);
   pdf.save(filename);
 }
 
 export async function downloadG1Pdf(sheet: HTMLElement, filename: string) {
-  const { iframe, doc } = openPrintFrame();
+  const size = sheetSize(sheet.dataset.orientation === "landscape" ? "landscape" : "portrait");
+  const { iframe, doc } = openPrintFrame(size);
   const clone = sheet.cloneNode(true) as HTMLElement;
   clone.style.transform = "none";
   clone.style.opacity = "1";
@@ -285,7 +313,7 @@ export async function downloadG1Pdf(sheet: HTMLElement, filename: string) {
   }
 
   try {
-    await rasterToPdf(clone, filename);
+    await rasterToPdf(clone, filename, size);
     iframe.remove();
   } catch (err) {
     console.error(err);
