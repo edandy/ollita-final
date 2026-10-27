@@ -10,6 +10,7 @@ import {
   g1PdfFilename,
   g2PdfFilename,
   g3PdfFilename,
+  g4PdfFilename,
 } from "./g1-pdf";
 
 describe("g1PdfFilename", () => {
@@ -37,6 +38,13 @@ describe("g2PdfFilename", () => {
 describe("g3PdfFilename", () => {
   it("names the monthly yield report after the group and month", () => {
     expect(g3PdfFilename("VES Sur Demo", "2026-10-01")).toBe("G3-Rendimiento-VES-Sur-Demo-2026-10.pdf");
+  });
+});
+
+describe("g4PdfFilename", () => {
+  it("names the padrón report after the group and the month or year", () => {
+    expect(g4PdfFilename("VES Sur Demo", "month", "2026-09-01")).toBe("G4-Padron-VES-Sur-Demo-2026-09.pdf");
+    expect(g4PdfFilename("VES Sur Demo", "year", "2026-01-01")).toBe("G4-Padron-VES-Sur-Demo-2026.pdf");
   });
 });
 

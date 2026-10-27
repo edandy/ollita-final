@@ -17,9 +17,11 @@ export type Database = {
       beneficiarios: {
         Row: {
           activo: boolean
+          birth_date: string | null
           carga_familiar: number
           categoria: Database["public"]["Enums"]["beneficiario_categoria"]
           comedor_id: string
+          care_group: Database["public"]["Enums"]["care_group"] | null
           created_at: string
           direccion: string | null
           dni: string
@@ -34,9 +36,11 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          birth_date?: string | null
           carga_familiar?: number
           categoria: Database["public"]["Enums"]["beneficiario_categoria"]
           comedor_id: string
+          care_group?: Database["public"]["Enums"]["care_group"] | null
           created_at?: string
           direccion?: string | null
           dni: string
@@ -51,9 +55,11 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          birth_date?: string | null
           carga_familiar?: number
           categoria?: Database["public"]["Enums"]["beneficiario_categoria"]
           comedor_id?: string
+          care_group?: Database["public"]["Enums"]["care_group"] | null
           created_at?: string
           direccion?: string | null
           dni?: string
@@ -1150,6 +1156,13 @@ export type Database = {
         | "caso_social"
       beneficiario_subtipo: "adulto_mayor" | "madre_soltera" | "otro"
       campana_meta: "dinero" | "especie"
+      care_group:
+        | "older_adult"
+        | "child"
+        | "social_case"
+        | "disability"
+        | "pregnant"
+        | "lactating"
       cargo_socia:
         | "presidenta"
         | "tesorera"
@@ -1313,6 +1326,14 @@ export const Constants = {
         "caso_social",
       ],
       beneficiario_subtipo: ["adulto_mayor", "madre_soltera", "otro"],
+      care_group: [
+        "older_adult",
+        "child",
+        "social_case",
+        "disability",
+        "pregnant",
+        "lactating",
+      ],
       campana_meta: ["dinero", "especie"],
       cargo_socia: [
         "presidenta",

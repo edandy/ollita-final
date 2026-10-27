@@ -115,6 +115,10 @@ export function g3PdfFilename(groupName: string, monthFrom: string) {
   return `G3-Rendimiento-${slugify(groupName)}-${monthFrom.slice(0, 7)}.pdf`;
 }
 
+export function g4PdfFilename(groupName: string, mode: "month" | "year", start: string) {
+  return `G4-Padron-${slugify(groupName)}-${start.slice(0, mode === "year" ? 4 : 7)}.pdf`;
+}
+
 function openPrintFrame() {
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");

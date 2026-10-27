@@ -5,15 +5,18 @@ import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { G1ReportPreview } from "@/components/admin/g1-report";
 import { G2ReportPreview } from "@/components/admin/g2-report";
 import { G3ReportPreview } from "@/components/admin/g3-report";
+import { G4ReportPreview } from "@/components/admin/g4-report";
 import { useAdminLayout } from "@/lib/admin-layout-context";
 import { todayISO } from "@/lib/dates";
 import { shiftWeek, weekRangeMonSat, type G1Report } from "@/lib/g1";
-import { downloadG1Pdf, g1PdfFilename, g2PdfFilename, g3PdfFilename } from "@/lib/g1-pdf";
+import { downloadG1Pdf, g1PdfFilename, g2PdfFilename, g3PdfFilename, g4PdfFilename } from "@/lib/g1-pdf";
 import { getG1Report, listReportGroups } from "@/lib/g1.functions";
 import type { G2Report } from "@/lib/g2";
 import { getG2Report } from "@/lib/g2.functions";
 import { monthRange, shiftMonth, type G3Report } from "@/lib/g3";
 import { getG3Report } from "@/lib/g3.functions";
+import { shiftYear, yearRange, type G4Mode, type G4Report } from "@/lib/g4";
+import { getG4Report } from "@/lib/g4.functions";
 import type { GroupRow } from "@/lib/groups.functions";
 import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
@@ -30,6 +33,7 @@ const REPORT_KINDS = [
   { value: "g1", label: "G1 · Raciones del grupo" },
   { value: "g2", label: "G2 · Almacén del grupo" },
   { value: "g3", label: "G3 · Rendimiento de insumos del grupo" },
+  { value: "g4", label: "G4 · Padrón del grupo" },
 ] as const;
 
 type ReportKind = (typeof REPORT_KINDS)[number]["value"];
@@ -37,7 +41,16 @@ type ReportKind = (typeof REPORT_KINDS)[number]["value"];
 type LoadedReport =
   | { kind: "g1"; data: G1Report }
   | { kind: "g2"; data: G2Report }
-  | { kind: "g3"; data: G3Report };
+  | { kind: "g3"; data: G3Report }
+  | { kind: "g4"; data: G4Report };
+
+type PeriodKind = "week" | "month" | "year";
+
+const PERIOD_COPY: Record<PeriodKind, { label: string; previous: string; next: string }> = {
+  week: { label: "Semana (lun–sáb)", previous: "Semana anterior", next: "Semana siguiente" },
+  month: { label: "Mes", previous: "Mes anterior", next: "Mes siguiente" },
+  year: { label: "Año", previous: "Año anterior", next: "Año siguiente" },
+};
 
 function ReportesPage() {
   const { isAdmin, setSubtitleCount } = useAdminLayout();
@@ -45,11 +58,14 @@ function ReportesPage() {
   const fnG1 = useServerFn(getG1Report);
   const fnG2 = useServerFn(getG2Report);
   const fnG3 = useServerFn(getG3Report);
+  const fnG4 = useServerFn(getG4Report);
   const [kind, setKind] = useState<ReportKind>("g1");
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [groupId, setGroupId] = useState("");
   const [weekStart, setWeekStart] = useState(() => weekRangeMonSat(todayISO()).from);
   const [monthStart, setMonthStart] = useState(() => monthRange(todayISO()).from);
+  const [yearStart, setYearStart] = useState(() => yearRange(todayISO()).from);
+  const [g4Mode, setG4Mode] = useState<G4Mode>("month");
   const [report, setReport] = useState<LoadedReport | null>(null);
   const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,10 +73,14 @@ function ReportesPage() {
   const { pending: exporting, run: runExport } = useSubmitLock();
 
   const week = weekRangeMonSat(weekStart);
-  const monthly = kind === "g3";
-  const periodLabel = monthly ? monthRange(monthStart).label : week.label;
-  const shiftPeriod = (step: number) =>
-    monthly ? setMonthStart((m) => shiftMonth(m, step)) : setWeekStart((w) => shiftWeek(w, step));
+  const periodKind: PeriodKind = kind === "g3" ? "month" : kind === "g4" ? g4Mode : "week";
+  const periodLabel =
+    periodKind === "year" ? yearRange(yearStart).label : periodKind === "month" ? monthRange(monthStart).label : week.label;
+  const shiftPeriod = (step: number) => {
+    if (periodKind === "year") setYearStart((y) => shiftYear(y, step));
+    else if (periodKind === "month") setMonthStart((m) => shiftMonth(m, step));
+    else setWeekStart((w) => shiftWeek(w, step));
+  };
 
   useEffect(() => {
     fnGroups({})
@@ -95,10 +115,14 @@ function ReportesPage() {
               report: { kind: "g2", data: r.report },
               emptyMessage: r.emptyMessage,
             }))
-          : fnG3({ data: { groupId, monthStart } }).then((r) => ({
-              report: { kind: "g3", data: r.report },
-              emptyMessage: r.emptyMessage,
-            }));
+          : kind === "g3"
+            ? fnG3({ data: { groupId, monthStart } }).then((r) => ({
+                report: { kind: "g3", data: r.report },
+                emptyMessage: r.emptyMessage,
+              }))
+            : fnG4({ data: { groupId, mode: g4Mode, start: g4Mode === "year" ? yearStart : monthStart } }).then(
+                (r) => ({ report: { kind: "g4", data: r.report }, emptyMessage: r.emptyMessage }),
+              );
     load
       .then((r) => {
         if (cancelled) return;
@@ -116,7 +140,7 @@ function ReportesPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, weekStart, monthStart, kind]);
+  }, [groupId, weekStart, monthStart, yearStart, g4Mode, kind]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -146,14 +170,34 @@ function ReportesPage() {
             ))}
           </select>
         </label>
+        {kind === "g4" && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[15px] font-semibold text-bosque">Período</span>
+            <div className="flex h-14 rounded-xl border border-[#E0E0E0] bg-white p-1" role="group" aria-label="Período">
+              {(["month", "year"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setG4Mode(mode)}
+                  aria-pressed={g4Mode === mode}
+                  className={`px-5 rounded-lg text-[16px] font-semibold ${
+                    g4Mode === mode ? "bg-[#C5EBF9] text-[#072249]" : "text-[#475569]"
+                  }`}
+                >
+                  {mode === "month" ? "Mes" : "Año"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-1.5">
-          <span className="text-[15px] font-semibold text-bosque">{monthly ? "Mes" : "Semana (lun–sáb)"}</span>
+          <span className="text-[15px] font-semibold text-bosque">{PERIOD_COPY[periodKind].label}</span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => shiftPeriod(-1)}
               className="size-14 rounded-xl border border-[#E0E0E0] bg-white grid place-items-center text-[#475569] hover:border-[#0F7BA8]"
-              aria-label={monthly ? "Mes anterior" : "Semana anterior"}
+              aria-label={PERIOD_COPY[periodKind].previous}
             >
               <ChevronLeft size={22} />
             </button>
@@ -162,7 +206,7 @@ function ReportesPage() {
               type="button"
               onClick={() => shiftPeriod(1)}
               className="size-14 rounded-xl border border-[#E0E0E0] bg-white grid place-items-center text-[#475569] hover:border-[#0F7BA8]"
-              aria-label={monthly ? "Mes siguiente" : "Semana siguiente"}
+              aria-label={PERIOD_COPY[periodKind].next}
             >
               <ChevronRight size={22} />
             </button>
@@ -184,7 +228,9 @@ function ReportesPage() {
                     ? g1PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
                     : report.kind === "g2"
                       ? g2PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
-                      : g3PdfFilename(report.data.groupName, report.data.month.from);
+                      : report.kind === "g3"
+                        ? g3PdfFilename(report.data.groupName, report.data.month.from)
+                        : g4PdfFilename(report.data.groupName, report.data.period.mode, report.data.period.from);
                 await downloadG1Pdf(sheet, filename);
               } catch (err) {
                 console.error(err);
@@ -221,8 +267,10 @@ function ReportesPage() {
             <G1ReportPreview report={report.data} sheetRef={sheetRef} />
           ) : report.kind === "g2" ? (
             <G2ReportPreview report={report.data} sheetRef={sheetRef} />
-          ) : (
+          ) : report.kind === "g3" ? (
             <G3ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : (
+            <G4ReportPreview report={report.data} sheetRef={sheetRef} />
           )}
         </div>
       )}

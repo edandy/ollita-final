@@ -14,12 +14,16 @@ import { notifyError, notifySuccess } from "@/lib/notify";
 import { subirFoto } from "@/lib/subirFoto";
 import { crearBeneficiario, sincronizarEquipoEnPadron } from "@/lib/padron.functions";
 import {
+  CARE_GROUPS,
+  CARE_GROUP_LABEL,
   canRemoveBeneficiary,
   friendlyCreateBeneficiaryError,
   padronStaffCargo,
   validateCreateBeneficiary,
   validateUpdateBeneficiary,
+  type CareGroup,
 } from "@/lib/padron";
+import { todayISO } from "@/lib/dates";
 import { CARGO_LABEL, type Cargo } from "@/lib/permisos";
 
 export const Route = createFileRoute("/_authenticated/panel/padron")({
@@ -38,6 +42,8 @@ type B = {
   activo: boolean;
   carga_familiar: number;
   foto_url: string | null;
+  care_group: CareGroup | null;
+  birth_date: string | null;
 };
 
 const CAT_LABEL: Record<string, string> = {
@@ -477,6 +483,8 @@ function FormBenef({
     (benef?.subtipo_caso_social as any) ?? "adulto_mayor",
   );
   const [vigencia, setVigencia] = useState(benef?.vigencia_hasta ?? "");
+  const [careGroup, setCareGroup] = useState<CareGroup | "">(benef?.care_group ?? "");
+  const [birthDate, setBirthDate] = useState(benef?.birth_date ?? "");
   const [pin, setPin] = useState("");
   const [fotoUrl, setFotoUrl] = useState<string | null>(benef?.foto_url ?? null);
   const [subiendo, setSubiendo] = useState(false);
@@ -522,6 +530,8 @@ function FormBenef({
           subtipo,
           vigencia,
           photoUrl: fotoUrl,
+          careGroup,
+          birthDate,
           comedor_id: comedorId,
         });
         void run(async () => {
@@ -534,6 +544,8 @@ function FormBenef({
             subtipo_caso_social: data.socialSubtype,
             vigencia_hasta: data.validUntil,
             foto_url: data.photoUrl,
+            care_group: data.careGroup,
+            birth_date: data.birthDate,
           }).eq("id", data.id);
           if (error) {
             setErr(friendlyCreateBeneficiaryError(error.message));
@@ -556,6 +568,8 @@ function FormBenef({
         subtipo,
         vigencia,
         photoUrl: fotoUrl,
+        careGroup,
+        birthDate,
         comedor_id: comedorId,
       });
       void run(async () => {
@@ -571,6 +585,8 @@ function FormBenef({
               subtipo: data.socialSubtype ?? "",
               vigencia: data.validUntil ?? "",
               photoUrl: data.photoUrl,
+              careGroup: data.careGroup ?? "",
+              birthDate: data.birthDate ?? "",
               comedor_id: data.comedor_id,
             },
           });
@@ -712,6 +728,37 @@ function FormBenef({
             )}
           </>
         )}
+        <div className="flex flex-col gap-2">
+          <span className="text-[15px] font-semibold text-[#072249]">Grupo de atención</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {[{ key: "" as const, label: "Sin especificar" }, ...CARE_GROUPS.map((key) => ({ key, label: CARE_GROUP_LABEL[key] }))].map(
+              (g) => (
+                <button
+                  key={g.key || "none"}
+                  type="button"
+                  onClick={() => setCareGroup(g.key)}
+                  className={`min-h-14 px-3 rounded-xl text-[16px] font-semibold text-[#072249] border ${
+                    careGroup === g.key ? "border-[#0F7BA8] bg-[#C5EBF9]" : "border-[#E0E0E0] bg-white"
+                  }`}
+                >
+                  {g.label}
+                </button>
+              ),
+            )}
+          </div>
+        </div>
+        <PanelField
+          label={careGroup === "child" || careGroup === "older_adult" ? "Fecha de nacimiento" : "Fecha de nacimiento · opcional"}
+        >
+          <input
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            required={careGroup === "child" || careGroup === "older_adult"}
+            max={todayISO()}
+            className={panelInputClass()}
+          />
+        </PanelField>
         {err && <p className="text-[15px] text-[#C5352B]">{err}</p>}
         <div className="flex gap-3 mt-1">
           <button

@@ -165,6 +165,8 @@ export const crearBeneficiario = createServerFn({ method: "POST" })
     subtipo?: string;
     vigencia?: string;
     photoUrl?: string | null;
+    careGroup?: string;
+    birthDate?: string;
     comedor_id: string;
   }) => validateCreateBeneficiary(d))
   .handler(async ({ data, context }) => {

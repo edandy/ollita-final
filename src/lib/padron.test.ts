@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ageOn,
   beneficiaryRow,
   canRemoveBeneficiary,
   friendlyCreateBeneficiaryError,
@@ -32,8 +33,41 @@ describe("validateCreateBeneficiary", () => {
       socialSubtype: null,
       validUntil: null,
       photoUrl: null,
+      careGroup: null,
+      birthDate: null,
       comedor_id: "olla-1",
     });
+  });
+
+  it("keeps the care group and birth date optional", () => {
+    expect(validateCreateBeneficiary({ ...valid, careGroup: "", birthDate: "" })).toMatchObject({
+      careGroup: null,
+      birthDate: null,
+    });
+    expect(validateCreateBeneficiary({ ...valid, careGroup: "disability" })).toMatchObject({
+      careGroup: "disability",
+      birthDate: null,
+    });
+  });
+
+  it("rejects an unknown care group", () => {
+    expect(() => validateCreateBeneficiary({ ...valid, careGroup: "otro" })).toThrow(/grupo de atención/);
+  });
+
+  it("asks for the birth date of children and older adults", () => {
+    expect(() => validateCreateBeneficiary({ ...valid, careGroup: "child" })).toThrow(/fecha de nacimiento/);
+    expect(() => validateCreateBeneficiary({ ...valid, careGroup: "older_adult", birthDate: " " })).toThrow(
+      /fecha de nacimiento/,
+    );
+    expect(validateCreateBeneficiary({ ...valid, careGroup: "older_adult", birthDate: "1950-03-02" })).toMatchObject({
+      careGroup: "older_adult",
+      birthDate: "1950-03-02",
+    });
+  });
+
+  it("rejects a malformed or future birth date", () => {
+    expect(() => validateCreateBeneficiary({ ...valid, birthDate: "02/03/1950" })).toThrow(/fecha de nacimiento/);
+    expect(() => validateCreateBeneficiary({ ...valid, birthDate: "2999-01-01" })).toThrow(/futura/);
   });
 
   it("treats an empty phone as optional", () => {
@@ -133,6 +167,22 @@ describe("beneficiaryRow", () => {
 
   it("omits foto_url when importing so existing photos stay", () => {
     expect(beneficiaryRow(validateCreateBeneficiary(valid), { includePhoto: false })).not.toHaveProperty("foto_url");
+  });
+
+  it("maps the care group and birth date, and leaves them alone when importing", () => {
+    const data = validateCreateBeneficiary({ ...valid, careGroup: "child", birthDate: "2021-05-10" });
+    expect(beneficiaryRow(data)).toMatchObject({ care_group: "child", birth_date: "2021-05-10" });
+    const imported = beneficiaryRow(data, { includePhoto: false });
+    expect(imported).not.toHaveProperty("care_group");
+    expect(imported).not.toHaveProperty("birth_date");
+  });
+});
+
+describe("ageOn", () => {
+  it("counts full years on a given day", () => {
+    expect(ageOn("1950-03-02", "2026-03-01")).toBe(75);
+    expect(ageOn("1950-03-02", "2026-03-02")).toBe(76);
+    expect(ageOn("2026-01-15", "2026-10-31")).toBe(0);
   });
 });
 

@@ -6,7 +6,7 @@ import { emailDeDni, claveDePin } from "../src/lib/dni-cuenta";
 import { G1_DEMO_KITCHEN_STAFF, G1_DEMO_PIN } from "../src/lib/g1-demo";
 import { weekRangeMonSat } from "../src/lib/g1";
 import { baselineRange, monthRange } from "../src/lib/g3";
-import { staffToPadronRow } from "../src/lib/padron";
+import { staffToPadronRow, type CareGroup } from "../src/lib/padron";
 import { CODE_ALPHABET, generateKitchenCode } from "../src/lib/reservas";
 
 const GROUP_NAME = "VES Sur Demo";
@@ -131,19 +131,89 @@ const DISH_ROTATION = {
 
 const SHARED_DNI = "88881111";
 
-const BENEFICIARIES: {
+type DemoBeneficiary = {
   dni: string;
   nombre: string;
   categoria: "socia_familia" | "publico_recurrente" | "caso_social";
   subtipo: "adulto_mayor" | "madre_soltera" | "otro" | null;
-}[] = [
-  { dni: SHARED_DNI, nombre: "Elena Ramos", categoria: "socia_familia", subtipo: null },
-  { dni: "88881112", nombre: "Pedro Vargas", categoria: "caso_social", subtipo: "adulto_mayor" },
-  { dni: "88881113", nombre: "Juana Díaz", categoria: "caso_social", subtipo: "madre_soltera" },
-  { dni: "88881114", nombre: "Mario Soto", categoria: "caso_social", subtipo: "otro" },
-  { dni: "88881115", nombre: "Ana Paredes", categoria: "publico_recurrente", subtipo: null },
-  { dni: "88881116", nombre: "Rosa Mendoza", categoria: "socia_familia", subtipo: null },
+  careGroup: CareGroup | null;
+  birthDate: string | null;
+};
+
+// In every seeded kitchen and picking up all week, so G1 shows them in each padrón.
+const BENEFICIARIES: DemoBeneficiary[] = [
+  { dni: SHARED_DNI, nombre: "Elena Ramos", categoria: "socia_familia", subtipo: null, careGroup: "lactating", birthDate: "1996-04-12" },
+  { dni: "88881112", nombre: "Pedro Vargas", categoria: "caso_social", subtipo: "adulto_mayor", careGroup: "older_adult", birthDate: "1948-08-20" },
+  { dni: "88881113", nombre: "Juana Díaz", categoria: "caso_social", subtipo: "madre_soltera", careGroup: "pregnant", birthDate: "1999-02-03" },
+  { dni: "88881114", nombre: "Mario Soto", categoria: "caso_social", subtipo: "otro", careGroup: "disability", birthDate: "1980-11-30" },
+  { dni: "88881115", nombre: "Ana Paredes", categoria: "publico_recurrente", subtipo: null, careGroup: "social_case", birthDate: "1975-06-15" },
+  { dni: "88881116", nombre: "Rosa Mendoza", categoria: "socia_familia", subtipo: null, careGroup: "older_adult", birthDate: "1958-01-09" },
 ];
+
+// G4: generated padrón per seeded kitchen. phone, address and photo set the completeness the report
+// shows; unused is the share of people who never pick up, which G4 lists as "inactivos de hecho".
+const PADRON = {
+  carmen: { size: 34, phone: 0.95, address: 0.9, photo: 0.6, unused: 0.1 },
+  cristo: { size: 28, phone: 0.4, address: 0.7, photo: 0.1, unused: 0.35 },
+  santa: { size: 24, phone: 0.65, address: 1, photo: 0.3, unused: 0.2 },
+  flores: { size: 22, phone: 0.8, address: 0.85, photo: 0, unused: 0.15 },
+} as const;
+
+// G4: people of one kitchen's generated padrón who are also in other kitchens (index → kitchens).
+const PADRON_SHARED: { from: keyof typeof PADRON; index: number; also: (keyof typeof PADRON)[] }[] = [
+  { from: "carmen", index: 0, also: ["cristo"] },
+  { from: "carmen", index: 1, also: ["cristo"] },
+  { from: "carmen", index: 2, also: ["cristo", "santa"] },
+  { from: "santa", index: 0, also: ["flores"] },
+  { from: "flores", index: 0, also: ["cristo"] },
+];
+
+const CARE_CYCLE: (CareGroup | null)[] = [
+  "older_adult", "child", "older_adult", "social_case", "child", "disability", "older_adult", "pregnant",
+  "child", "older_adult", "social_case", "lactating", "child", "disability", "older_adult", null,
+  "child", "older_adult", "social_case", "disability", "older_adult", "child", "lactating", "social_case", null,
+];
+
+const FIRST_NAMES = ["Carmen", "Luz", "Teresa", "Julio", "Nilda", "Óscar", "Marina", "Hilda", "Víctor", "Sonia", "Félix", "Gladys"];
+const LAST_NAMES = ["Huamán", "Quispe", "Flores", "Mamani", "Rojas", "Chávez", "Torres", "Ccahuana", "Salazar", "Pumacayo"];
+
+function ageFor(careGroup: CareGroup | null, i: number) {
+  if (careGroup === "older_adult") return 60 + ((i * 7) % 28);
+  if (careGroup === "child") return (i * 5) % 13;
+  if (careGroup === "pregnant" || careGroup === "lactating") return 18 + ((i * 3) % 22);
+  return 20 + ((i * 11) % 45);
+}
+
+/** Deterministic share test so re-runs give the same padrón. */
+function within(i: number, salt: number, rate: number) {
+  return ((i * salt) % 100) / 100 < rate;
+}
+
+function generatedPadron(kitchenIndex: number, kitchenKey: keyof typeof PADRON, year: number) {
+  const cfg = PADRON[kitchenKey];
+  return Array.from({ length: cfg.size }, (_, i) => {
+    const careGroup = CARE_CYCLE[(i + kitchenIndex * 3) % CARE_CYCLE.length]!;
+    const age = ageFor(careGroup, i + kitchenIndex);
+    const dni = `8889${String(kitchenIndex + 1).padStart(2, "0")}${String(i).padStart(2, "0")}`;
+    return {
+      dni,
+      nombre: `${FIRST_NAMES[(i + kitchenIndex) % FIRST_NAMES.length]} ${LAST_NAMES[(i * 3 + kitchenIndex) % LAST_NAMES.length]}`,
+      categoria: careGroup === "older_adult" ? ("caso_social" as const) : i % 2 ? ("publico_recurrente" as const) : ("socia_familia" as const),
+      subtipo: careGroup === "older_adult" ? ("adulto_mayor" as const) : null,
+      careGroup,
+      birthDate: `${year - age - 1}-${String((i % 12) + 1).padStart(2, "0")}-${String(((i * 3) % 27) + 1).padStart(2, "0")}`,
+      carga: (i * 3) % 6,
+      activo: i % 13 !== 12,
+      telefono: within(i, 37, cfg.phone) ? `9${dni}` : null,
+      direccion: within(i, 53, cfg.address) ? `Mz. ${String.fromCharCode(65 + (i % 8))} Lt. ${i + 1}` : null,
+      fotoUrl: within(i, 71, cfg.photo) ? "/favicon.png" : null,
+      // A few joined this month, so G4 shows new entries.
+      newThisMonth: i % 9 === 4,
+      // The last share of the list never picks up.
+      picksUp: i < Math.round(cfg.size * (1 - cfg.unused)),
+    };
+  });
+}
 
 function loadEnvLocal() {
   const path = resolve(process.cwd(), ".env.local");
@@ -298,37 +368,56 @@ async function main() {
     .lte("fecha", week.to);
   throwIf(delMenusErr, "borrar menús demo");
 
+  // Padrón: the shared demo people plus each kitchen's generated list, upserted so re-runs are stable.
   const beneficiaryIds: Record<string, Record<string, string>> = {};
+  const generated = Object.fromEntries(
+    (Object.keys(PADRON) as (keyof typeof PADRON)[]).map((key, index) => [
+      key,
+      generatedPadron(index, key, Number(today.slice(0, 4))),
+    ]),
+  ) as Record<keyof typeof PADRON, ReturnType<typeof generatedPadron>>;
+  const padronOf = (key: keyof typeof PADRON) => [
+    ...generated[key],
+    ...PADRON_SHARED.filter((sh) => sh.also.includes(key)).map((sh) => ({ ...generated[sh.from][sh.index]!, newThisMonth: false })),
+  ];
   for (const k of KITCHENS.filter((x) => x.seed)) {
     const comedorId = kitchenIds[k.key]!;
+    // Two upserts: a bulk upsert sends the same columns for every row.
+    const shared = BENEFICIARIES.map((b) => ({
+        comedor_id: comedorId,
+        nombre_completo: b.nombre,
+        dni: b.dni,
+        categoria: b.categoria,
+        subtipo_caso_social: b.subtipo,
+        care_group: b.careGroup,
+        birth_date: b.birthDate,
+        activo: true,
+        carga_familiar: 0,
+      }));
+    const own = padronOf(k.key as keyof typeof PADRON).map((b) => ({
+        comedor_id: comedorId,
+        nombre_completo: b.nombre,
+        dni: b.dni,
+        categoria: b.categoria,
+        subtipo_caso_social: b.subtipo,
+        care_group: b.careGroup,
+        birth_date: b.birthDate,
+        activo: b.activo,
+        carga_familiar: b.carga,
+        telefono: b.telefono,
+        direccion: b.direccion,
+        foto_url: b.fotoUrl,
+        // Everyone else joined last year, so the yearly G4 only counts this month's entries as new.
+        created_at: b.newThisMonth ? `${month.from}T15:00:00Z` : `${Number(today.slice(0, 4)) - 1}-11-15T15:00:00Z`,
+      }));
     beneficiaryIds[k.key] = {};
-    for (const b of BENEFICIARIES) {
-      const { data: found, error: bFindErr } = await supabase
+    for (const rows of [shared, own]) {
+      const { data: saved, error } = await supabase
         .from("beneficiarios")
-        .select("id")
-        .eq("comedor_id", comedorId)
-        .eq("dni", b.dni)
-        .maybeSingle();
-      throwIf(bFindErr, `buscar padrón ${b.dni} en ${k.nombre}`);
-      if (found) {
-        beneficiaryIds[k.key]![b.dni] = found.id;
-        continue;
-      }
-      const { data: row, error } = await supabase
-        .from("beneficiarios")
-        .insert({
-          comedor_id: comedorId,
-          nombre_completo: b.nombre,
-          dni: b.dni,
-          categoria: b.categoria,
-          subtipo_caso_social: b.subtipo,
-          activo: true,
-          carga_familiar: 0,
-        })
-        .select("id")
-        .single();
-      throwIf(error, `crear padrón ${b.dni} en ${k.nombre}`);
-      beneficiaryIds[k.key]![b.dni] = row!.id;
+        .upsert(rows, { onConflict: "comedor_id,dni" })
+        .select("id,dni");
+      throwIf(error, `padrón de ${k.nombre}`);
+      for (const r of saved ?? []) beneficiaryIds[k.key]![r.dni] = r.id;
     }
   }
 
@@ -413,7 +502,8 @@ async function main() {
     }
   }
 
-  // G3: Monday–Saturday menus since the baseline start, one lumped pickup per day.
+  // G3: Monday–Saturday menus since the baseline start, one lumped pickup per day. In this month part of
+  // it goes to padrón people one serving each (G4 uso del padrón); the daily total stays the same.
   const historyDays = serviceDays.filter((d) => d < week.from);
   for (const k of KITCHENS.filter((x) => x.seed)) {
     const comedorId = kitchenIds[k.key]!;
@@ -432,12 +522,28 @@ async function main() {
           raciones_disponibles: k.prepared,
         })),
       )
-      .select("id");
+      .select("id,fecha");
     throwIf(histErr, `menús anteriores ${k.nombre}`);
-    const { error: histResErr } = await supabase.from("reservas").insert(
-      // reservas.cantidad is capped at 50, so the day's pickups go in parts.
-      (rows ?? []).flatMap((m) =>
-        splitServings(k.delivered, Math.ceil(k.delivered / 50)).map((cantidad) => ({
+    const users = padronOf(k.key as keyof typeof PADRON).filter((b) => b.activo && b.picksUp);
+    const pickupRows = (rows ?? []).flatMap((m) => {
+      const dayIndex = historyDays.indexOf(m.fecha);
+      const fecha = m.fecha;
+      // Each user comes about every third day.
+      const named = fecha >= month.from ? users.filter((_, j) => (j + dayIndex) % 3 === 0) : [];
+      const lumped = k.delivered - named.length;
+      return [
+        ...named.map((b) => ({
+          menu_id: m.id,
+          comedor_id: comedorId,
+          cantidad: 1,
+          estado: "recogida" as const,
+          codigo: `E${code}-${suffix(codeSeq++)}`,
+          dni: b.dni,
+          beneficiario_id: beneficiaryIds[k.key]![b.dni] ?? null,
+          nombre_comensal: b.nombre,
+        })),
+        // reservas.cantidad is capped at 50, so the day's lumped pickups go in parts.
+        ...splitServings(lumped, Math.ceil(lumped / 50)).map((cantidad) => ({
           menu_id: m.id,
           comedor_id: comedorId,
           cantidad,
@@ -447,8 +553,9 @@ async function main() {
           beneficiario_id: null,
           nombre_comensal: "Entregas del día",
         })),
-      ),
-    );
+      ];
+    });
+    const { error: histResErr } = await supabase.from("reservas").insert(pickupRows);
     throwIf(histResErr, `reservas anteriores ${k.nombre}`);
   }
 

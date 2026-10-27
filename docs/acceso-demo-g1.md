@@ -56,3 +56,19 @@ El G3 es mensual. El seeder crea menús de lunes a sábado desde tres meses ante
 - **Merma:** en los meses anteriores las ollas usaron una fracción de lo que usan este mes (`USAGE_BEFORE`). Por eso Cristo Rey y Las Flores muestran merma frente a su propio promedio.
 
 Mira el reporte en `/admin/reportes` → **G3 · Rendimiento de insumos del grupo**, con el selector de mes.
+
+## Padrón del grupo (G4)
+
+El G4 se ve por mes o por año. Cuenta a cada persona una sola vez aunque esté en varios padrones, y nunca muestra nombres ni DNI.
+
+El seeder arma el padrón de las cuatro ollas sembradas:
+
+- **Personas:** los 6 beneficiarios de siempre, más un padrón generado por olla (`PADRON`) con DNI `8889xxxx`. Cada persona tiene grupo de atención (adulto mayor, niña o niño, caso social, discapacidad, gestante o lactante) y fecha de nacimiento. Unas pocas quedan sin grupo y salen como "Sin clasificar".
+- **Completitud:** cada olla tiene distinta proporción de teléfono, dirección y foto. Cristo Rey queda por debajo del 50% de teléfonos y sale en rojo.
+- **Uso:** en el mes actual, parte de las entregas del día se registra a nombre de personas del padrón. Una parte de cada olla nunca recoge (`unused`), y esas personas son los "inactivos de hecho".
+- **Más de un padrón:** algunas personas generadas también están en otra olla (`PADRON_SHARED`).
+- **Altas:** algunas personas tienen fecha de alta en el mes actual.
+
+El padrón se guarda con upsert por olla y DNI, así que correr el seeder de nuevo no duplica personas.
+
+Mira el reporte en `/admin/reportes` → **G4 · Padrón del grupo**, con el selector Mes/Año.

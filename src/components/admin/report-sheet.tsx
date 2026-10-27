@@ -92,12 +92,16 @@ export function ReportSheet({
   code,
   title,
   cadence = "Semanal",
+  footerNote = "Consolidado sin datos de caja",
+  gap = 12,
   sheetRef,
   children,
 }: {
   code: string;
   title: string;
-  cadence?: "Semanal" | "Mensual";
+  cadence?: "Semanal" | "Mensual" | "Mensual y anual";
+  footerNote?: string;
+  gap?: number;
   sheetRef?: Ref<HTMLElement | null>;
   children: ReactNode;
 }) {
@@ -128,7 +132,7 @@ export function ReportSheet({
           minHeight: 0,
           display: "flex",
           flexDirection: "column",
-          gap: 12,
+          gap,
           padding: "32px 48px 0 48px",
         }}
       >
@@ -244,7 +248,7 @@ export function ReportSheet({
           }}
         >
           <span>La Ollita · NOS Finance · Generado el {generatedLabel()}</span>
-          <span>Consolidado sin datos de caja</span>
+          <span>{footerNote}</span>
           <span>Página 1 de 1</span>
         </div>
       </footer>
