@@ -107,7 +107,7 @@ export const getG3Report = createServerFn({ method: "POST" })
       const rows = await fetchAllRows<any>((f, t) =>
         supabaseAdmin
           .from("movimientos_insumo")
-          .select("insumo_id,tipo,cantidad,fecha,precio_unitario")
+          .select("insumo_id,tipo,cantidad,fecha,precio_unitario,transfer_id")
           .in("insumo_id", ids)
           .gte("fecha", from)
           .lte("fecha", month.to)
@@ -121,6 +121,7 @@ export const getG3Report = createServerFn({ method: "POST" })
           cantidad: Number(m.cantidad) || 0,
           fecha: m.fecha,
           precio_unitario: m.precio_unitario == null ? null : Number(m.precio_unitario),
+          transfer_id: m.transfer_id ?? null,
         })),
       );
     }

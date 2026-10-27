@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { useSubmitLock } from "@/lib/submit-lock";
-import { Plus, Minus, FileText } from "lucide-react";
+import { Plus, Minus, FileText, ArrowRightLeft } from "lucide-react";
 import {
   PanelShell, PanelBack, PanelTitle, PanelCta, PanelField,
   PanelOverlay, panelInputClass, PanelWriteGate,
@@ -57,6 +57,9 @@ function InsumosPage() {
   const [agregando, setAgregando] = useState(false);
   const [movimiento, setMovimiento] = useState<{ insumo: Insumo; tipo: "ingreso" | "salida"; cantidad: string } | null>(null);
   const [reporte, setReporte] = useState(false);
+  const [prestamo, setPrestamo] = useState<Insumo | null>(null);
+  const [porRecibir, setPorRecibir] = useState<{ id: string; supply_name: string; unit: string; quantity: number; sent_on: string; from: string }[]>([]);
+  const { pending: recibiendo, run: runRecibir } = useSubmitLock();
 
   const cargar = async () => {
     if (!comedor) return;
@@ -71,6 +74,7 @@ function InsumosPage() {
       .select("insumo_id,cantidad,fecha")
       .in("insumo_id", ids)
       .eq("tipo", "salida")
+      .is("transfer_id", null)
       .gte("fecha", desde);
     const acum: Record<string, { total: number; dias: Set<string> }> = {};
     for (const m of movs ?? []) {
@@ -80,7 +84,44 @@ function InsumosPage() {
     }
     setConsumos(Object.fromEntries(Object.entries(acum).map(([k, v]) => [k, v.dias.size ? v.total / v.dias.size : 0])));
   };
-  useEffect(() => { cargar(); }, [comedor?.id]);
+
+  // G10: loans from other kitchens of the group still waiting for this kitchen to confirm them.
+  const cargarPrestamos = async () => {
+    if (!comedor) return;
+    const [{ data: loans }, { data: ollas }] = await Promise.all([
+      supabase
+        .from("supply_transfers")
+        .select("id,supply_name,unit,quantity,sent_on,from_comedor_id")
+        .eq("to_comedor_id", comedor.id)
+        .eq("status", "sent")
+        .order("sent_on"),
+      supabase.rpc("group_kitchens_for", { p_comedor_id: comedor.id }),
+    ]);
+    const nombres = new Map((ollas ?? []).map((o) => [o.id, o.nombre]));
+    setPorRecibir(
+      (loans ?? []).map((l) => ({
+        id: l.id,
+        supply_name: l.supply_name,
+        unit: l.unit,
+        quantity: Number(l.quantity),
+        sent_on: l.sent_on,
+        from: nombres.get(l.from_comedor_id) ?? "otra olla",
+      })),
+    );
+  };
+
+  const recibir = (id: string) => {
+    void runRecibir(async () => {
+      const { error } = await supabase.rpc("receive_supply_transfer", { p_transfer_id: id });
+      if (error) {
+        void notifyError(friendlySupabaseError(error.message));
+        return;
+      }
+      void notifySuccess("Se sumó al almacén.");
+      await Promise.all([cargar(), cargarPrestamos()]);
+    });
+  };
+  useEffect(() => { cargar(); cargarPrestamos(); }, [comedor?.id]);
 
   const porReponer = insumos.filter((i) => {
     const consumo = consumos[i.id] ?? 0;
@@ -109,6 +150,21 @@ function InsumosPage() {
       />
 
       <div className="flex flex-col gap-4">
+        {canWrite && porRecibir.length > 0 && (
+          <div className="bg-[#C5EBF9] rounded-[20px] p-[22px] flex flex-col gap-3">
+            <h3 className="text-[19px] font-bold text-[#072249]">Por recibir</h3>
+            {porRecibir.map((l) => (
+              <div key={l.id} className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-[17px] text-[#072249]">
+                  <strong>{l.supply_name}</strong> · {l.quantity} {l.unit} · de {l.from} · {l.sent_on.slice(8)}/{l.sent_on.slice(5, 7)}
+                </p>
+                <PanelCta onClick={() => recibir(l.id)} loading={recibiendo} loadingText="Sumando…" className="min-h-[48px] px-5 text-[16px] w-auto">
+                  Ya llegó
+                </PanelCta>
+              </div>
+            ))}
+          </div>
+        )}
         {insumos.length === 0 && (
           <div className="bg-white border border-[#E0E0E0] rounded-[20px] p-[22px] text-center text-[17px] text-[#718096]">
             {canWrite
@@ -171,6 +227,13 @@ function InsumosPage() {
                 >
                   <Minus size={20} strokeWidth={2} /> Usé hoy
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setPrestamo(i)}
+                  className="flex-1 min-w-[180px] min-h-[52px] gap-2 inline-flex items-center justify-center rounded-full bg-white border border-[#E0E0E0] text-[#475569] text-[16px] font-semibold hover:border-[#9197B3]"
+                >
+                  <ArrowRightLeft size={20} strokeWidth={2} /> Presté a otra olla
+                </button>
               </div>
               </PanelWriteGate>
             </div>
@@ -189,6 +252,7 @@ function InsumosPage() {
       {agregando && canWrite && <FormInsumo comedorId={comedor.id} cerrar={() => { setAgregando(false); cargar(); }} />}
       {movimiento && canWrite && <FormMovimiento {...movimiento} cerrar={() => { setMovimiento(null); cargar(); }} />}
       {reporte && <ReporteGastos insumos={insumos} cerrar={() => setReporte(false)} />}
+      {prestamo && canWrite && <FormPrestamo insumo={prestamo} cerrar={() => { setPrestamo(null); cargar(); }} />}
     </PanelShell>
   );
 }
@@ -357,6 +421,78 @@ function FormInsumo({ comedorId, cerrar }: { comedorId: string; cerrar: () => vo
           </button>
           <PanelCta type="submit" loading={pending} className="flex-[1.4]">
             Guardar insumo
+          </PanelCta>
+        </div>
+      </form>
+    </PanelOverlay>
+  );
+}
+
+function FormPrestamo({ insumo, cerrar }: { insumo: Insumo; cerrar: () => void }) {
+  const [ollas, setOllas] = useState<{ id: string; nombre: string }[]>([]);
+  const [destino, setDestino] = useState("");
+  const [cantidad, setCantidad] = useState("");
+  const [nota, setNota] = useState("");
+  const { pending, run } = useSubmitLock();
+
+  useEffect(() => {
+    supabase.rpc("group_kitchens_for", { p_comedor_id: insumo.comedor_id }).then(({ data }) => setOllas(data ?? []));
+  }, [insumo.comedor_id]);
+
+  const guardar = (e: React.FormEvent) => {
+    e.preventDefault();
+    const c = Number(cantidad);
+    if (!destino) { void notifyError("Elige a qué olla le prestas."); return; }
+    if (!c || c <= 0) { void notifyError("Escribe cuánto prestas."); return; }
+    void run(async () => {
+      const { error } = await supabase.rpc("lend_supply", {
+        p_insumo_id: insumo.id,
+        p_to_comedor_id: destino,
+        p_cantidad: c,
+        p_nota: nota.trim() || null,
+      });
+      if (error) { void notifyError(friendlySupabaseError(error.message)); return; }
+      void notifySuccess("Se registró el préstamo. La otra olla lo confirma cuando le llegue.");
+      cerrar();
+    });
+  };
+
+  return (
+    <PanelOverlay onClose={cerrar}>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-[24px] font-bold tracking-[-0.02em] text-[#072249]">Presté a otra olla</h3>
+        <p className="text-[17px] text-[#475569]">
+          Descuenta del stock del almacén. <span className="font-semibold text-[#072249]">{insumo.nombre}</span>
+        </p>
+      </div>
+      <form onSubmit={guardar} className="flex flex-col gap-[18px]">
+        <PanelField label="A qué olla">
+          <select value={destino} onChange={(e) => setDestino(e.target.value)} className={panelInputClass()}>
+            <option value="">{ollas.length ? "Elige la olla" : "Tu olla no está en un grupo con otras ollas"}</option>
+            {ollas.map((o) => (
+              <option key={o.id} value={o.id}>{o.nombre}</option>
+            ))}
+          </select>
+        </PanelField>
+        <PanelField label="Cantidad que prestas">
+          <input
+            type="number"
+            step="0.1"
+            value={cantidad}
+            onChange={(e) => setCantidad(e.target.value)}
+            className={panelInputClass()}
+            placeholder={`10 ${insumo.unidad}`}
+          />
+        </PanelField>
+        <PanelField label="Nota · opcional">
+          <input value={nota} onChange={(e) => setNota(e.target.value)} className={panelInputClass()} placeholder="Ej. Lo recogió la tesorera" />
+        </PanelField>
+        <div className="flex gap-2.5">
+          <button type="button" onClick={cerrar} className="flex-1 min-h-14 rounded-full bg-white border border-[#E0E0E0] text-[#072249] text-[17px] font-semibold">
+            Cancelar
+          </button>
+          <PanelCta type="submit" loading={pending} loadingText="Prestando…" className="flex-[1.4]">
+            Prestar
           </PanelCta>
         </div>
       </form>

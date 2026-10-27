@@ -213,3 +213,33 @@ El seeder deja:
   - La almacenera de Carmen empezó esta semana, así que "Usuarias activas" muestra "+1".
 
 Mira el reporte en `/admin/reportes` → **G9 · Adopción y calidad de datos**, con el selector de semana.
+
+## Excedentes y faltantes (G10)
+
+El G10 es semanal y solo para supervisión. Usa el stock al corte de la semana y el consumo de los últimos 30 días, igual que el G2.
+
+- **Faltante:** menos de 4 días de stock.
+- **Excedente:** más de 8 días.
+- **Transferencias sugeridas:** a quien le falta se le sube hasta unos 6 días, sin que la olla que presta baje de 8. Las cantidades van redondeadas.
+- **Aviso:** sale cuando prestar no alcanza y hay que comprar.
+
+**Préstamos entre ollas (Almacén):**
+
+1. La olla que presta usa **Presté a otra olla**, elige una olla de su grupo y se le descuenta del stock.
+2. A la olla que recibe le aparece **Por recibir**.
+3. Cuando toca **Ya llegó**, se suma a su stock.
+
+Esas salidas y entradas (`transfer_id`) no cuentan como consumo en G2, G3, G6 ni G8.
+
+El seeder deja:
+
+- **Excedentes:** Virgen del Carmen tiene más de 8 días de arroz, aceite, azúcar, fideos, menestras y leche.
+- **Préstamos de la semana pasada** (`SUPPLY_LOANS`), todos desde Virgen del Carmen:
+
+  | A | Insumo | Estado |
+  |---|---|---|
+  | Cristo Rey | 25 kg de arroz | Recibido |
+  | Las Flores | 3 kg de azúcar | Recibido |
+  | Santa María | 3 L de aceite | Por confirmar |
+
+Mira el reporte en `/admin/reportes` → **G10 · Excedentes y faltantes**, con el selector de semana.

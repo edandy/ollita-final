@@ -111,12 +111,12 @@ export const getG6Report = createServerFn({ method: "POST" })
 
     // Outflows of the 30-day usage window, plus everything after the cutoff to rebuild the stock at that date.
     const windowStart = addDaysISO(cutoff, -(G2_USAGE_WINDOW_DAYS - 1));
-    const movements: { insumo_id: string; tipo: string; cantidad: number; fecha: string }[] = [];
+    const movements: { insumo_id: string; tipo: string; cantidad: number; fecha: string; transfer_id: string | null }[] = [];
     for (const ids of chunks(supplies.map((s) => s.id))) {
-      const rows = await fetchAllRows<{ insumo_id: string; tipo: string; cantidad: number; fecha: string }>((f, t) =>
+      const rows = await fetchAllRows<{ insumo_id: string; tipo: string; cantidad: number; fecha: string; transfer_id: string | null }>((f, t) =>
         supabaseAdmin
           .from("movimientos_insumo")
-          .select("insumo_id,tipo,cantidad,fecha")
+          .select("insumo_id,tipo,cantidad,fecha,transfer_id")
           .in("insumo_id", ids)
           .gte("fecha", windowStart)
           .order("id")

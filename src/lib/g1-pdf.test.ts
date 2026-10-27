@@ -16,6 +16,7 @@ import {
   g7PdfFilename,
   g8PdfFilename,
   g9PdfFilename,
+  g10PdfFilename,
   pdfPage,
   sheetSize,
 } from "./g1-pdf";
@@ -89,6 +90,14 @@ describe("g9PdfFilename", () => {
   it("names the adoption report after the group and week", () => {
     expect(g9PdfFilename("VES Sur Demo", "2026-10-19", "2026-10-24")).toBe(
       "G9-Adopcion-VES-Sur-Demo-2026-10-19_2026-10-24.pdf",
+    );
+  });
+});
+
+describe("g10PdfFilename", () => {
+  it("names the surplus report after the group and week", () => {
+    expect(g10PdfFilename("VES Sur Demo", "2026-10-19", "2026-10-24")).toBe(
+      "G10-Excedentes-VES-Sur-Demo-2026-10-19_2026-10-24.pdf",
     );
   });
 });

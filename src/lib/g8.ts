@@ -12,6 +12,7 @@ export type G8Movement = {
   cantidad: number;
   fecha: string;
   donation_id: string | null;
+  transfer_id?: string | null;
 };
 export type G8Menu = { id: string; comedor_id: string; fecha: string; nombre_plato: string; foto_url: string | null };
 /** A `recogida` reservation. */
@@ -101,7 +102,7 @@ export function buildG8Report(input: {
   const parts: Part[] = [...shares.values()].map((share) => {
     const byDay = new Map<string, number>();
     for (const m of input.movements) {
-      if (m.tipo !== "salida" || !share.insumoIds.has(m.insumo_id) || m.fecha < share.start) continue;
+      if (m.tipo !== "salida" || m.transfer_id || !share.insumoIds.has(m.insumo_id) || m.fecha < share.start) continue;
       byDay.set(m.fecha, (byDay.get(m.fecha) ?? 0) + (Number(m.cantidad) || 0));
     }
     const dates = [...byDay.keys()].sort();

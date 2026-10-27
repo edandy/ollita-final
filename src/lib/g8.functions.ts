@@ -68,7 +68,7 @@ export const getG8Report = createServerFn({ method: "POST" })
     const entries = await fetchAllRows<G8Movement>((f, t) =>
       supabaseAdmin
         .from("movimientos_insumo")
-        .select("insumo_id,tipo,cantidad,fecha,donation_id")
+        .select("insumo_id,tipo,cantidad,fecha,donation_id,transfer_id")
         .eq("donation_id", lot.id)
         .order("id")
         .range(f, t),
@@ -99,7 +99,7 @@ export const getG8Report = createServerFn({ method: "POST" })
       const rows = await fetchAllRows<G8Movement>((f, t) =>
         supabaseAdmin
           .from("movimientos_insumo")
-          .select("insumo_id,tipo,cantidad,fecha,donation_id")
+          .select("insumo_id,tipo,cantidad,fecha,donation_id,transfer_id")
           .in("insumo_id", ids)
           .gte("fecha", start)
           .order("id")

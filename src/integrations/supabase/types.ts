@@ -966,6 +966,7 @@ export type Database = {
           insumo_id: string
           nota: string | null
           precio_unitario: number | null
+          transfer_id: string | null
           tipo: Database["public"]["Enums"]["movimiento_tipo"]
         }
         Insert: {
@@ -978,6 +979,7 @@ export type Database = {
           nota?: string | null
           precio_unitario?: number | null
           tipo: Database["public"]["Enums"]["movimiento_tipo"]
+          transfer_id?: string | null
         }
         Update: {
           cantidad?: number
@@ -988,6 +990,7 @@ export type Database = {
           insumo_id?: string
           nota?: string | null
           precio_unitario?: number | null
+          transfer_id?: string | null
           tipo?: Database["public"]["Enums"]["movimiento_tipo"]
         }
         Relationships: [
@@ -1087,6 +1090,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      supply_transfers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_comedor_id: string
+          from_movement_id: string | null
+          id: string
+          quantity: number
+          received_on: string | null
+          sent_on: string
+          status: string
+          supply_name: string
+          to_comedor_id: string
+          to_movement_id: string | null
+          unit: Database["public"]["Enums"]["insumo_unidad"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_comedor_id: string
+          from_movement_id?: string | null
+          id?: string
+          quantity: number
+          received_on?: string | null
+          sent_on?: string
+          status?: string
+          supply_name: string
+          to_comedor_id: string
+          to_movement_id?: string | null
+          unit: Database["public"]["Enums"]["insumo_unidad"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_comedor_id?: string
+          from_movement_id?: string | null
+          id?: string
+          quantity?: number
+          received_on?: string | null
+          sent_on?: string
+          status?: string
+          supply_name?: string
+          to_comedor_id?: string
+          to_movement_id?: string | null
+          unit?: Database["public"]["Enums"]["insumo_unidad"]
+        }
+        Relationships: []
       }
       supervisor_assignments: {
         Row: {
@@ -1290,6 +1341,18 @@ export type Database = {
       dni_in_active_padron: {
         Args: { _comedor_id: string; _dni: string }
         Returns: boolean
+      }
+      group_kitchens_for: {
+        Args: { p_comedor_id: string }
+        Returns: { id: string; nombre: string }[]
+      }
+      lend_supply: {
+        Args: { p_insumo_id: string; p_to_comedor_id: string; p_cantidad: number; p_nota?: string | null }
+        Returns: string
+      }
+      receive_supply_transfer: {
+        Args: { p_transfer_id: string }
+        Returns: string
       }
       log_kitchen_activity: {
         Args: { p_comedor_id: string }

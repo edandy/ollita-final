@@ -14,6 +14,11 @@ describe("friendlySupabaseError", () => {
     ).toBe("No pudimos completar la reserva. Inténtalo de nuevo.");
   });
 
+  it("keeps the Spanish messages of the loan functions", () => {
+    expect(friendlySupabaseError("No tienes stock suficiente para prestar.")).toBe("No tienes stock suficiente para prestar.");
+    expect(friendlySupabaseError("Esa olla no es de tu grupo.")).toBe("Esa olla no es de tu grupo.");
+  });
+
   it("maps duplicate key errors", () => {
     expect(friendlySupabaseError("duplicate key value violates unique constraint")).toBe(
       "Ese registro ya existe.",

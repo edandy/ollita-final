@@ -98,7 +98,8 @@ const SUPPLIES = [
 
 // Days of coverage each seeded kitchen ends with; under 4 shows up as an alert in G2.
 const SUPPLY_DAYS = {
-  carmen: { arroz: 8, aceite: 6, azucar: 9, fideos: 7, menestras: 12, leche: 10 },
+  // G10: Carmen has more than 8 days of most supplies, so it can lend.
+  carmen: { arroz: 12, aceite: 10, azucar: 9, fideos: 11, menestras: 12, leche: 10 },
   cristo: { arroz: 3, aceite: 2, azucar: 5, fideos: 3, menestras: 6, leche: 5 },
   santa: { arroz: 7, aceite: 3, azucar: 3, fideos: 6, menestras: 8, leche: 3 },
   flores: { arroz: 5, aceite: 2, azucar: 3, fideos: 5, menestras: 4, leche: 7 },
@@ -166,6 +167,14 @@ const DUPLICATE_PEOPLE: { kitchenKey: keyof typeof PADRON; index: number }[] = [
 // (Carmen) started this week, so "usuarias activas" shows +1.
 const ACTIVITY_STOPPED_DAYS_AGO: Record<string, number> = { "88883105": 14 };
 const ACTIVITY_STARTED_THIS_WEEK = new Set(["88883112"]);
+
+// G10: loans between kitchens last week (index into last week's service days). The last one has not
+// been confirmed by the kitchen that receives it.
+const SUPPLY_LOANS: { day: number; from: string; to: string; supply: "arroz" | "azucar" | "aceite"; quantity: number; received: boolean }[] = [
+  { day: 1, from: "carmen", to: "cristo", supply: "arroz", quantity: 25, received: true },
+  { day: 2, from: "carmen", to: "flores", supply: "azucar", quantity: 3, received: true },
+  { day: 3, from: "carmen", to: "santa", supply: "aceite", quantity: 3, received: false },
+];
 
 // G7 dependency: each padrón user comes every 1, 2, 3 or 5 service days.
 const PICKUP_EVERY = [1, 2, 3, 5];
@@ -834,6 +843,79 @@ async function main() {
     }
   }
 
+  // G10: loans with their outflow and, once received, their entry; neither counts as consumption.
+  const { error: delLoansErr } = await supabase
+    .from("supply_transfers")
+    .delete()
+    .or(`from_comedor_id.in.(${seededIds.join(",")}),to_comedor_id.in.(${seededIds.join(",")})`);
+  throwIf(delLoansErr, "borrar préstamos demo");
+  const supplyIdOf = async (kitchenKey: string, nombre: string) => {
+    const { data, error } = await supabase
+      .from("insumos")
+      .select("id")
+      .eq("comedor_id", kitchenIds[kitchenKey]!)
+      .eq("nombre", nombre)
+      .single();
+    throwIf(error, `insumo ${nombre} de ${kitchenKey}`);
+    return data!.id as string;
+  };
+  for (const loan of SUPPLY_LOANS) {
+    const supply = SUPPLIES.find((x) => x.key === loan.supply)!;
+    const sentOn = lastWeekDays[loan.day]!;
+    const { data: transfer, error: loanErr } = await supabase
+      .from("supply_transfers")
+      .insert({
+        from_comedor_id: kitchenIds[loan.from]!,
+        to_comedor_id: kitchenIds[loan.to]!,
+        supply_name: supply.nombre,
+        unit: supply.unidad,
+        quantity: loan.quantity,
+        sent_on: sentOn,
+        status: loan.received ? "received" : "sent",
+        received_on: loan.received ? sentOn : null,
+      })
+      .select("id")
+      .single();
+    throwIf(loanErr, `préstamo ${supply.nombre}`);
+    const lenderName = KITCHENS.find((k) => k.key === loan.from)!.nombre;
+    const receiverName = KITCHENS.find((k) => k.key === loan.to)!.nombre;
+    const { data: out, error: outErr } = await supabase
+      .from("movimientos_insumo")
+      .insert({
+        insumo_id: await supplyIdOf(loan.from, supply.nombre),
+        tipo: "salida",
+        cantidad: loan.quantity,
+        fecha: sentOn,
+        nota: `Préstamo a ${receiverName} · g1-demo`,
+        transfer_id: transfer!.id,
+      })
+      .select("id")
+      .single();
+    throwIf(outErr, `salida del préstamo ${supply.nombre}`);
+    let toMovementId: string | null = null;
+    if (loan.received) {
+      const { data: inn, error: inErr } = await supabase
+        .from("movimientos_insumo")
+        .insert({
+          insumo_id: await supplyIdOf(loan.to, supply.nombre),
+          tipo: "ingreso",
+          cantidad: loan.quantity,
+          fecha: sentOn,
+          nota: `Préstamo de ${lenderName} · g1-demo`,
+          transfer_id: transfer!.id,
+        })
+        .select("id")
+        .single();
+      throwIf(inErr, `entrada del préstamo ${supply.nombre}`);
+      toMovementId = inn!.id;
+    }
+    const { error: linkErr } = await supabase
+      .from("supply_transfers")
+      .update({ from_movement_id: out!.id, to_movement_id: toMovementId })
+      .eq("id", transfer!.id);
+    throwIf(linkErr, `vincular préstamo ${supply.nombre}`);
+  }
+
   // G7: municipal (PCA) and donated supplies, without price.
   const monthsWithSupplies = [...new Set(supplyDates.map((d) => d.slice(0, 7)))];
   for (const k of KITCHENS.filter((x) => x.seed)) {
@@ -1157,7 +1239,7 @@ async function main() {
   const { error: activityErr } = await supabase.from("kitchen_activity").insert(activity);
   throwIf(activityErr, "uso diario demo");
 
-  console.log("\nDemo G1 a G9 listo en el Supabase de .env.local\n");
+  console.log("\nDemo G1 a G10 listo en el Supabase de .env.local\n");
   console.log(`Grupo:   ${GROUP_NAME}`);
   console.log(`Semana:  ${week.label} (${week.from} a ${week.to})`);
   console.log(`G6:      semana anterior ${lastWeek.label} con alertas de menú, caja y entregas`);

@@ -139,6 +139,20 @@ describe("buildG3Report", () => {
     expect(report.merma).toBeCloseTo(8 / (120 + 45), 6);
   });
 
+  it("does not count a loan to another kitchen as merma", () => {
+    const r = buildG3Report({
+      groupName: "VES Sur",
+      monthStart: "2026-10-14",
+      today: "2026-10-31",
+      kitchens,
+      menus,
+      reservations,
+      supplies,
+      movements: [...movements, { ...out("a-arroz", "2026-10-02", 40), transfer_id: "t1" }],
+    });
+    expect(r.merma).toBeCloseTo(report.merma!, 6);
+  });
+
   it("returns no merma without history", () => {
     const r = buildG3Report({
       groupName: "G",

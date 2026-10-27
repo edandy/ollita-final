@@ -198,7 +198,7 @@ export function buildG3Report(input: {
   }
   const outflow = (supplyId: string, within: (fecha: string) => boolean) =>
     (movesBySupply.get(supplyId) ?? [])
-      .filter((m) => m.tipo === "salida" && within(m.fecha))
+      .filter((m) => m.tipo === "salida" && !m.transfer_id && within(m.fecha))
       .reduce((s, m) => s + (Number(m.cantidad) || 0), 0);
 
   const monthEnd = periodEnd;

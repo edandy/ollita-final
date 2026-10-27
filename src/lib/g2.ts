@@ -25,6 +25,8 @@ export type G2Movement = {
   cantidad: number;
   fecha: string;
   precio_unitario: number | null;
+  /** Set on loans between kitchens (G10): they move stock but are not consumption. */
+  transfer_id?: string | null;
 };
 
 export type G2SupplyRow = {
@@ -103,12 +105,15 @@ export function stockAtCutoff(
 }
 
 // Same rule as the kitchen's Almacén screen: outflows of the last 30 days divided by the days with outflows.
-export function dailyUsage(cutoff: string, movements: Pick<G2Movement, "tipo" | "cantidad" | "fecha">[]) {
+export function dailyUsage(
+  cutoff: string,
+  movements: Pick<G2Movement, "tipo" | "cantidad" | "fecha" | "transfer_id">[],
+) {
   const from = addDaysISO(cutoff, -(G2_USAGE_WINDOW_DAYS - 1));
   let total = 0;
   const days = new Set<string>();
   for (const m of movements) {
-    if (m.tipo !== "salida" || m.fecha < from || m.fecha > cutoff) continue;
+    if (m.tipo !== "salida" || m.transfer_id || m.fecha < from || m.fecha > cutoff) continue;
     total += Number(m.cantidad) || 0;
     days.add(m.fecha);
   }

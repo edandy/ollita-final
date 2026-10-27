@@ -54,6 +54,15 @@ describe("stock and usage", () => {
     ).toBe(12);
   });
 
+  it("leaves loans to other kitchens out of the usage, but not out of the stock", () => {
+    const moves = [
+      { tipo: "salida", cantidad: 10, fecha: "2026-10-24" },
+      { tipo: "salida", cantidad: 25, fecha: "2026-10-23", transfer_id: "t1" },
+    ];
+    expect(dailyUsage("2026-10-24", moves)).toBe(10);
+    expect(stockAtCutoff(5, "2026-10-22", moves)).toBe(40);
+  });
+
   it("returns 0 usage without outflows", () => {
     expect(dailyUsage("2026-10-24", [])).toBe(0);
   });

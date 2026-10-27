@@ -11,6 +11,7 @@ import { G6ReportPreview } from "@/components/admin/g6-report";
 import { G7ReportPreview } from "@/components/admin/g7-report";
 import { G8ReportPreview } from "@/components/admin/g8-report";
 import { G9ReportPreview } from "@/components/admin/g9-report";
+import { G10ReportPreview } from "@/components/admin/g10-report";
 import { listReportDonations } from "@/lib/donations.functions";
 import { listReportAllies } from "@/lib/allies.functions";
 import { useAdminLayout } from "@/lib/admin-layout-context";
@@ -27,6 +28,7 @@ import {
   g7PdfFilename,
   g8PdfFilename,
   g9PdfFilename,
+  g10PdfFilename,
 } from "@/lib/g1-pdf";
 import { getG1Report, listReportGroups } from "@/lib/g1.functions";
 import type { G2Report } from "@/lib/g2";
@@ -45,6 +47,8 @@ import type { G8Report, G8Version } from "@/lib/g8";
 import { getG8Report } from "@/lib/g8.functions";
 import type { G9Report } from "@/lib/g9";
 import { getG9Report } from "@/lib/g9.functions";
+import type { G10Report } from "@/lib/g10";
+import { getG10Report } from "@/lib/g10.functions";
 import type { GroupRow } from "@/lib/groups.functions";
 import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
@@ -67,6 +71,7 @@ const REPORT_KINDS = [
   { value: "g7", label: "G7 · Impacto del grupo" },
   { value: "g8", label: "G8 · Donación al grupo" },
   { value: "g9", label: "G9 · Adopción y calidad de datos" },
+  { value: "g10", label: "G10 · Excedentes y faltantes" },
 ] as const;
 
 type ReportKind = (typeof REPORT_KINDS)[number]["value"];
@@ -80,7 +85,8 @@ type LoadedReport =
   | { kind: "g6"; data: G6Report }
   | { kind: "g7"; data: G7Report }
   | { kind: "g8"; data: G8Report }
-  | { kind: "g9"; data: G9Report };
+  | { kind: "g9"; data: G9Report }
+  | { kind: "g10"; data: G10Report };
 
 type PeriodKind = "week" | "month" | "year";
 
@@ -104,6 +110,7 @@ function ReportesPage() {
   const fnG8 = useServerFn(getG8Report);
   const fnDonations = useServerFn(listReportDonations);
   const fnG9 = useServerFn(getG9Report);
+  const fnG10 = useServerFn(getG10Report);
   const [kind, setKind] = useState<ReportKind>("g1");
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [groupId, setGroupId] = useState("");
@@ -245,10 +252,15 @@ function ReportesPage() {
                           report: { kind: "g8", data: r.report },
                           emptyMessage: r.emptyMessage,
                         }))
-                      : fnG9({ data: { groupId, weekStart } }).then((r) => ({
-                          report: { kind: "g9", data: r.report },
-                          emptyMessage: r.emptyMessage,
-                        }));
+                      : kind === "g9"
+                        ? fnG9({ data: { groupId, weekStart } }).then((r) => ({
+                            report: { kind: "g9", data: r.report },
+                            emptyMessage: r.emptyMessage,
+                          }))
+                        : fnG10({ data: { groupId, weekStart } }).then((r) => ({
+                            report: { kind: "g10", data: r.report },
+                            emptyMessage: r.emptyMessage,
+                          }));
     load
       .then((r) => {
         if (cancelled) return;
@@ -423,7 +435,9 @@ function ReportesPage() {
                                 ? g7PdfFilename(report.data.groupName, report.data.allyName, report.data.month.from)
                                 : report.kind === "g8"
                                   ? g8PdfFilename(report.data.donation.code, report.data.version)
-                                  : g9PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to);
+                                  : report.kind === "g9"
+                                    ? g9PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
+                                    : g10PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to);
                 await downloadG1Pdf(sheet, filename);
               } catch (err) {
                 console.error(err);
@@ -472,8 +486,10 @@ function ReportesPage() {
             <G7ReportPreview report={report.data} sheetRef={sheetRef} />
           ) : report.kind === "g8" ? (
             <G8ReportPreview report={report.data} sheetRef={sheetRef} />
-          ) : (
+          ) : report.kind === "g9" ? (
             <G9ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : (
+            <G10ReportPreview report={report.data} sheetRef={sheetRef} />
           )}
         </div>
       )}

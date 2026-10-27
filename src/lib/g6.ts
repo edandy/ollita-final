@@ -68,7 +68,7 @@ export function buildG6Report(input: {
   menus: G6Menu[];
   cashDays: G6CashDay[];
   supplies: G6Supply[];
-  movements: Pick<G2Movement, "insumo_id" | "tipo" | "cantidad" | "fecha">[];
+  movements: Pick<G2Movement, "insumo_id" | "tipo" | "cantidad" | "fecha" | "transfer_id">[];
   people: G6Person[];
   pendingReservations: G6Pending[];
 }) {

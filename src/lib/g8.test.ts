@@ -122,6 +122,18 @@ describe("buildG8Report", () => {
     );
   });
 
+  it("does not count a loan to another kitchen as using the share", () => {
+    const withLoan = buildG8Report({
+      ...base,
+      version: "donor",
+      movements: [
+        ...movements,
+        { insumo_id: "b-men", tipo: "salida", cantidad: 14, fecha: "2026-10-09", donation_id: null, transfer_id: "t1" },
+      ],
+    });
+    expect(withLoan.status).toEqual(report.status);
+  });
+
   it("returns an empty report when no kitchen recorded a share", () => {
     const empty = buildG8Report({ ...base, version: "donor", movements: [] });
     expect(empty.kitchens).toEqual([]);

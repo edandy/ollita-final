@@ -152,6 +152,10 @@ export function g9PdfFilename(groupName: string, weekFrom: string, weekTo: strin
   return `G9-Adopcion-${slugify(groupName)}-${weekFrom}_${weekTo}.pdf`;
 }
 
+export function g10PdfFilename(groupName: string, weekFrom: string, weekTo: string) {
+  return `G10-Excedentes-${slugify(groupName)}-${weekFrom}_${weekTo}.pdf`;
+}
+
 export function g4PdfFilename(groupName: string, mode: "month" | "year", start: string) {
   return `G4-Padron-${slugify(groupName)}-${start.slice(0, mode === "year" ? 4 : 7)}.pdf`;
 }
