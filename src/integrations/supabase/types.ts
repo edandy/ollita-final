@@ -795,6 +795,66 @@ export type Database = {
           },
         ]
       }
+      joint_purchase_kitchens: {
+        Row: {
+          comedor_id: string
+          purchase_id: string
+        }
+        Insert: {
+          comedor_id: string
+          purchase_id: string
+        }
+        Update: {
+          comedor_id?: string
+          purchase_id?: string
+        }
+        Relationships: []
+      }
+      joint_purchase_prices: {
+        Row: {
+          label: string
+          negotiated_price: number
+          purchase_id: string
+          supply_key: string
+          unit: Database["public"]["Enums"]["insumo_unidad"]
+        }
+        Insert: {
+          label: string
+          negotiated_price: number
+          purchase_id: string
+          supply_key: string
+          unit: Database["public"]["Enums"]["insumo_unidad"]
+        }
+        Update: {
+          label?: string
+          negotiated_price?: number
+          purchase_id?: string
+          supply_key?: string
+          unit?: Database["public"]["Enums"]["insumo_unidad"]
+        }
+        Relationships: []
+      }
+      joint_purchases: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          month: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          month: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          month?: string
+        }
+        Relationships: []
+      }
       kitchen_activity: {
         Row: {
           comedor_id: string

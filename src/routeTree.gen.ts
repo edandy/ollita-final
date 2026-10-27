@@ -21,6 +21,7 @@ import { Route as InvitacionTokenRouteImport } from './routes/invitacion.$token'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminActividadRouteImport } from './routes/_authenticated/admin.actividad'
 import { Route as AuthenticatedAdminAliadosRouteImport } from './routes/_authenticated/admin.aliados'
+import { Route as AuthenticatedAdminComprasRouteImport } from './routes/_authenticated/admin.compras'
 import { Route as AuthenticatedAdminDonacionesRouteImport } from './routes/_authenticated/admin.donaciones'
 import { Route as AuthenticatedAdminDonantesRouteImport } from './routes/_authenticated/admin.donantes'
 import { Route as AuthenticatedAdminGestoresRouteImport } from './routes/_authenticated/admin.gestores'
@@ -100,6 +101,12 @@ const AuthenticatedAdminAliadosRoute =
   AuthenticatedAdminAliadosRouteImport.update({
     id: '/aliados',
     path: '/aliados',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminComprasRoute =
+  AuthenticatedAdminComprasRouteImport.update({
+    id: '/compras',
+    path: '/compras',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminDonacionesRoute =
@@ -223,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/admin/actividad': typeof AuthenticatedAdminActividadRoute
   '/admin/aliados': typeof AuthenticatedAdminAliadosRoute
+  '/admin/compras': typeof AuthenticatedAdminComprasRoute
   '/admin/donaciones': typeof AuthenticatedAdminDonacionesRoute
   '/admin/donantes': typeof AuthenticatedAdminDonantesRoute
   '/admin/gestores': typeof AuthenticatedAdminGestoresRoute
@@ -253,6 +261,7 @@ export interface FileRoutesByTo {
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/admin/actividad': typeof AuthenticatedAdminActividadRoute
   '/admin/aliados': typeof AuthenticatedAdminAliadosRoute
+  '/admin/compras': typeof AuthenticatedAdminComprasRoute
   '/admin/donaciones': typeof AuthenticatedAdminDonacionesRoute
   '/admin/donantes': typeof AuthenticatedAdminDonantesRoute
   '/admin/gestores': typeof AuthenticatedAdminGestoresRoute
@@ -287,6 +296,7 @@ export interface FileRoutesById {
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/_authenticated/admin/actividad': typeof AuthenticatedAdminActividadRoute
   '/_authenticated/admin/aliados': typeof AuthenticatedAdminAliadosRoute
+  '/_authenticated/admin/compras': typeof AuthenticatedAdminComprasRoute
   '/_authenticated/admin/donaciones': typeof AuthenticatedAdminDonacionesRoute
   '/_authenticated/admin/donantes': typeof AuthenticatedAdminDonantesRoute
   '/_authenticated/admin/gestores': typeof AuthenticatedAdminGestoresRoute
@@ -321,6 +331,7 @@ export interface FileRouteTypes {
     | '/invitacion/$token'
     | '/admin/actividad'
     | '/admin/aliados'
+    | '/admin/compras'
     | '/admin/donaciones'
     | '/admin/donantes'
     | '/admin/gestores'
@@ -351,6 +362,7 @@ export interface FileRouteTypes {
     | '/invitacion/$token'
     | '/admin/actividad'
     | '/admin/aliados'
+    | '/admin/compras'
     | '/admin/donaciones'
     | '/admin/donantes'
     | '/admin/gestores'
@@ -384,6 +396,7 @@ export interface FileRouteTypes {
     | '/invitacion/$token'
     | '/_authenticated/admin/actividad'
     | '/_authenticated/admin/aliados'
+    | '/_authenticated/admin/compras'
     | '/_authenticated/admin/donaciones'
     | '/_authenticated/admin/donantes'
     | '/_authenticated/admin/gestores'
@@ -500,6 +513,13 @@ declare module '@tanstack/react-router' {
       path: '/aliados'
       fullPath: '/admin/aliados'
       preLoaderRoute: typeof AuthenticatedAdminAliadosRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/compras': {
+      id: '/_authenticated/admin/compras'
+      path: '/compras'
+      fullPath: '/admin/compras'
+      preLoaderRoute: typeof AuthenticatedAdminComprasRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/donaciones': {
@@ -641,6 +661,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminActividadRoute: typeof AuthenticatedAdminActividadRoute
   AuthenticatedAdminAliadosRoute: typeof AuthenticatedAdminAliadosRoute
+  AuthenticatedAdminComprasRoute: typeof AuthenticatedAdminComprasRoute
   AuthenticatedAdminDonacionesRoute: typeof AuthenticatedAdminDonacionesRoute
   AuthenticatedAdminDonantesRoute: typeof AuthenticatedAdminDonantesRoute
   AuthenticatedAdminGestoresRoute: typeof AuthenticatedAdminGestoresRoute
@@ -654,6 +675,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminActividadRoute: AuthenticatedAdminActividadRoute,
   AuthenticatedAdminAliadosRoute: AuthenticatedAdminAliadosRoute,
+  AuthenticatedAdminComprasRoute: AuthenticatedAdminComprasRoute,
   AuthenticatedAdminDonacionesRoute: AuthenticatedAdminDonacionesRoute,
   AuthenticatedAdminDonantesRoute: AuthenticatedAdminDonantesRoute,
   AuthenticatedAdminGestoresRoute: AuthenticatedAdminGestoresRoute,

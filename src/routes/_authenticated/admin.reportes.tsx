@@ -12,6 +12,7 @@ import { G7ReportPreview } from "@/components/admin/g7-report";
 import { G8ReportPreview } from "@/components/admin/g8-report";
 import { G9ReportPreview } from "@/components/admin/g9-report";
 import { G10ReportPreview } from "@/components/admin/g10-report";
+import { G11ReportPreview } from "@/components/admin/g11-report";
 import { listReportDonations } from "@/lib/donations.functions";
 import { listReportAllies } from "@/lib/allies.functions";
 import { useAdminLayout } from "@/lib/admin-layout-context";
@@ -29,6 +30,7 @@ import {
   g8PdfFilename,
   g9PdfFilename,
   g10PdfFilename,
+  g11PdfFilename,
 } from "@/lib/g1-pdf";
 import { getG1Report, listReportGroups } from "@/lib/g1.functions";
 import type { G2Report } from "@/lib/g2";
@@ -49,6 +51,8 @@ import type { G9Report } from "@/lib/g9";
 import { getG9Report } from "@/lib/g9.functions";
 import type { G10Report } from "@/lib/g10";
 import { getG10Report } from "@/lib/g10.functions";
+import type { G11Report } from "@/lib/g11";
+import { getG11Report } from "@/lib/g11.functions";
 import type { GroupRow } from "@/lib/groups.functions";
 import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
@@ -72,6 +76,7 @@ const REPORT_KINDS = [
   { value: "g8", label: "G8 · Donación al grupo" },
   { value: "g9", label: "G9 · Adopción y calidad de datos" },
   { value: "g10", label: "G10 · Excedentes y faltantes" },
+  { value: "g11", label: "G11 · Compras conjuntas" },
 ] as const;
 
 type ReportKind = (typeof REPORT_KINDS)[number]["value"];
@@ -86,7 +91,8 @@ type LoadedReport =
   | { kind: "g7"; data: G7Report }
   | { kind: "g8"; data: G8Report }
   | { kind: "g9"; data: G9Report }
-  | { kind: "g10"; data: G10Report };
+  | { kind: "g10"; data: G10Report }
+  | { kind: "g11"; data: G11Report };
 
 type PeriodKind = "week" | "month" | "year";
 
@@ -111,6 +117,7 @@ function ReportesPage() {
   const fnDonations = useServerFn(listReportDonations);
   const fnG9 = useServerFn(getG9Report);
   const fnG10 = useServerFn(getG10Report);
+  const fnG11 = useServerFn(getG11Report);
   const [kind, setKind] = useState<ReportKind>("g1");
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [groupId, setGroupId] = useState("");
@@ -130,7 +137,7 @@ function ReportesPage() {
   const { pending: exporting, run: runExport } = useSubmitLock();
 
   const week = weekRangeMonSat(weekStart);
-  const periodKind: PeriodKind = kind === "g3" || kind === "g5" || kind === "g7" ? "month" : kind === "g4" ? g4Mode : "week";
+  const periodKind: PeriodKind = kind === "g3" || kind === "g5" || kind === "g7" || kind === "g11" ? "month" : kind === "g4" ? g4Mode : "week";
   const periodLabel =
     periodKind === "year" ? yearRange(yearStart).label : periodKind === "month" ? monthRange(monthStart).label : week.label;
   const shiftPeriod = (step: number) => {
@@ -257,10 +264,15 @@ function ReportesPage() {
                             report: { kind: "g9", data: r.report },
                             emptyMessage: r.emptyMessage,
                           }))
-                        : fnG10({ data: { groupId, weekStart } }).then((r) => ({
-                            report: { kind: "g10", data: r.report },
-                            emptyMessage: r.emptyMessage,
-                          }));
+                        : kind === "g10"
+                          ? fnG10({ data: { groupId, weekStart } }).then((r) => ({
+                              report: { kind: "g10", data: r.report },
+                              emptyMessage: r.emptyMessage,
+                            }))
+                          : fnG11({ data: { groupId, monthStart } }).then((r) => ({
+                              report: { kind: "g11", data: r.report },
+                              emptyMessage: r.emptyMessage,
+                            }));
     load
       .then((r) => {
         if (cancelled) return;
@@ -287,7 +299,12 @@ function ReportesPage() {
           <span className="text-[15px] font-semibold text-bosque">Reporte</span>
           <select
             value={kind}
-            onChange={(e) => setKind(e.target.value as ReportKind)}
+            onChange={(e) => {
+              const next = e.target.value as ReportKind;
+              setKind(next);
+              // A joint purchase is for a month to come: skip the month already running.
+              if (next === "g11" && monthStart <= todayISO()) setMonthStart(shiftMonth(todayISO(), 1));
+            }}
             className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
           >
             {REPORT_KINDS.map((k) => (
@@ -437,7 +454,9 @@ function ReportesPage() {
                                   ? g8PdfFilename(report.data.donation.code, report.data.version)
                                   : report.kind === "g9"
                                     ? g9PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
-                                    : g10PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to);
+                                    : report.kind === "g10"
+                                      ? g10PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
+                                      : g11PdfFilename(report.data.groupName, report.data.month.from);
                 await downloadG1Pdf(sheet, filename);
               } catch (err) {
                 console.error(err);
@@ -488,8 +507,10 @@ function ReportesPage() {
             <G8ReportPreview report={report.data} sheetRef={sheetRef} />
           ) : report.kind === "g9" ? (
             <G9ReportPreview report={report.data} sheetRef={sheetRef} />
-          ) : (
+          ) : report.kind === "g10" ? (
             <G10ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : (
+            <G11ReportPreview report={report.data} sheetRef={sheetRef} />
           )}
         </div>
       )}

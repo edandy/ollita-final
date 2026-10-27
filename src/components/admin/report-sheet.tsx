@@ -432,6 +432,16 @@ export function SectionHead({
   );
 }
 
+/** A line to sign on paper, with what goes on it below. */
+export function SignatureLine({ label, muted }: { label: string; muted?: boolean }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 28 }}>
+      <div style={{ height: 1, background: muted ? "#475569" : "#111111" }} />
+      <span style={{ fontSize: 12, lineHeight: "16px", color: "#475569" }}>{label}</span>
+    </div>
+  );
+}
+
 export function SheetNote({ children }: { children: ReactNode }) {
   return <span style={{ fontSize: 12, lineHeight: "16px", color: "#475569" }}>{children}</span>;
 }

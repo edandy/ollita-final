@@ -243,3 +243,40 @@ El seeder deja:
   | Santa María | 3 L de aceite | Por confirmar |
 
 Mira el reporte en `/admin/reportes` → **G10 · Excedentes y faltantes**, con el selector de semana.
+
+## Compras conjuntas (G11)
+
+El G11 es mensual y sirve para la compra de un mes que viene. La compra se arma en `/admin/compras`, que solo ve el admin: se eligen el grupo y el mes, se marcan los comedores que participan y se escribe el precio negociado de cada insumo.
+
+Cómo calcula el reporte:
+
+- **Cantidad:** para cada comedor que participa, su consumo diario × sus días de atención del mes, menos su stock. El total se redondea hacia arriba a 10.
+- **Insumos que entran:** solo los comprados. Los municipales y las donaciones quedan fuera.
+- **Precio actual:** el promedio ponderado de lo que pagó cada comedor en sus compras de los últimos 90 días.
+- **Ahorro:** (precio actual − precio negociado) × cantidad.
+- **Gráfico:** compara el precio del insumo principal de cada comedor con el del grupo.
+
+El seeder deja:
+
+- **Precios por comedor** (`PRICE_FACTOR`), frente al precio de referencia:
+
+  | Comedor | Paga |
+  |---|---|
+  | Virgen del Carmen | 7% menos |
+  | Cristo Rey | 7% más |
+  | Santa María | lo mismo |
+  | Las Flores | 3% menos |
+
+- **Compra conjunta del mes siguiente** (`JOINT_PURCHASE`): participan Carmen, Cristo Rey y Santa María.
+
+  | Insumo | Precio negociado |
+  |---|---|
+  | Arroz | S/ 3.80 |
+  | Aceite | S/ 8.90 |
+  | Fideos | S/ 4.50 |
+  | Menestras | S/ 6.30 |
+  | Azúcar | S/ 3.40 |
+
+  La leche queda sin negociar.
+
+Mira el reporte en `/admin/reportes` → **G11 · Compras conjuntas**, con el selector de mes.

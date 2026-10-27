@@ -21,7 +21,7 @@ import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 import {
-  Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, Layers, LogOut, FileBarChart, Handshake, Building2, Gift,
+  Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, Layers, LogOut, FileBarChart, Handshake, Building2, Gift, ShoppingCart,
 } from "lucide-react";
 
 const NAV: { key: AdminSection; label: string; icon: typeof LayoutGrid }[] = [
@@ -33,6 +33,7 @@ const NAV: { key: AdminSection; label: string; icon: typeof LayoutGrid }[] = [
   { key: "aliados", label: "Aliados", icon: Handshake },
   { key: "donantes", label: "Donantes", icon: Building2 },
   { key: "donaciones", label: "Donaciones", icon: Gift },
+  { key: "compras", label: "Compras conjuntas", icon: ShoppingCart },
   { key: "reportes", label: "Reportes", icon: FileBarChart },
   { key: "actividad", label: "Uso diario", icon: CalendarCheck },
 ];
@@ -69,6 +70,10 @@ const TITULOS: Record<AdminSection, { titulo: string; sub: (t: ReturnType<typeof
   donaciones: {
     titulo: "Donaciones",
     sub: (_t, n = 0) => n === 1 ? "1 lote de donación" : `${n} lotes de donación`,
+  },
+  compras: {
+    titulo: "Compras conjuntas",
+    sub: () => "Lista consolidada y precios negociados del grupo",
   },
   reportes: {
     titulo: "Reportes",

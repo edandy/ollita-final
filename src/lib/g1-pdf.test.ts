@@ -17,6 +17,7 @@ import {
   g8PdfFilename,
   g9PdfFilename,
   g10PdfFilename,
+  g11PdfFilename,
   pdfPage,
   sheetSize,
 } from "./g1-pdf";
@@ -99,6 +100,12 @@ describe("g10PdfFilename", () => {
     expect(g10PdfFilename("VES Sur Demo", "2026-10-19", "2026-10-24")).toBe(
       "G10-Excedentes-VES-Sur-Demo-2026-10-19_2026-10-24.pdf",
     );
+  });
+});
+
+describe("g11PdfFilename", () => {
+  it("names the joint purchase report after the group and the month it buys for", () => {
+    expect(g11PdfFilename("VES Sur Demo", "2026-11-01")).toBe("G11-Compras-VES-Sur-Demo-2026-11.pdf");
   });
 });
 

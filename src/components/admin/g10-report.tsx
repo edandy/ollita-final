@@ -1,7 +1,15 @@
 import type { CSSProperties, Ref } from "react";
 import { formatG1Number } from "@/lib/g1";
 import type { G10Report } from "@/lib/g10";
-import { Kpi, Meta, MetaBand, ReportPreview, ReportSheet, joinNames } from "@/components/admin/report-sheet";
+import {
+  Kpi,
+  Meta,
+  MetaBand,
+  ReportPreview,
+  ReportSheet,
+  SignatureLine,
+  joinNames,
+} from "@/components/admin/report-sheet";
 
 const H2: CSSProperties = { margin: 0, fontSize: 15, lineHeight: "20px", fontWeight: 700, color: "#072249" };
 const TOP: CSSProperties = { verticalAlign: "top" };
@@ -35,15 +43,6 @@ function WarningIcon() {
       <path d="M12 3.5 2.5 20h19z" />
       <path d="M12 10v4.5M12 17.2h.01" strokeLinecap="round" />
     </svg>
-  );
-}
-
-function Signature({ label, muted }: { label: string; muted?: boolean }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 28 }}>
-      <div style={{ height: 1, background: muted ? "#475569" : "#111111" }} />
-      <span style={{ fontSize: 12, lineHeight: "16px", color: "#475569" }}>{label}</span>
-    </div>
   );
 }
 
@@ -250,9 +249,9 @@ export function G10ReportSheet({ report, ref }: { report: G10Report; ref?: Ref<H
           alignItems: "end",
         }}
       >
-        <Signature label="Observaciones" muted />
-        <Signature label="Coordinadora del grupo" />
-        <Signature label="Supervisora" />
+        <SignatureLine label="Observaciones" muted />
+        <SignatureLine label="Coordinadora del grupo" />
+        <SignatureLine label="Supervisora" />
       </div>
     </ReportSheet>
   );

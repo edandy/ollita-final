@@ -6,6 +6,7 @@ import { emailDeDni, claveDePin } from "../src/lib/dni-cuenta";
 import { G1_DEMO_KITCHEN_STAFF, G1_DEMO_PIN } from "../src/lib/g1-demo";
 import { shiftWeek, weekRangeMonSat } from "../src/lib/g1";
 import { baselineRange, monthRange, shiftMonth } from "../src/lib/g3";
+import { supplyKey } from "../src/lib/g2";
 import { staffToPadronRow, type CareGroup, type Sex } from "../src/lib/padron";
 import { CODE_ALPHABET, generateKitchenCode } from "../src/lib/reservas";
 
@@ -167,6 +168,15 @@ const DUPLICATE_PEOPLE: { kitchenKey: keyof typeof PADRON; index: number }[] = [
 // (Carmen) started this week, so "usuarias activas" shows +1.
 const ACTIVITY_STOPPED_DAYS_AGO: Record<string, number> = { "88883105": 14 };
 const ACTIVITY_STARTED_THIS_WEEK = new Set(["88883112"]);
+
+// G11: what each kitchen pays for its purchases, as a share of the reference price (precio_referencial
+// stays the same, so G2 and G3 do not change).
+const PRICE_FACTOR = { carmen: 0.93, cristo: 1.07, santa: 1, flores: 0.97 } as const;
+// G11: next month's joint purchase. Las Flores sits it out; milk is not negotiated.
+const JOINT_PURCHASE = {
+  kitchenKeys: ["carmen", "cristo", "santa"],
+  prices: { arroz: 3.8, aceite: 8.9, fideos: 4.5, menestras: 6.3, azucar: 3.4 } as Partial<Record<string, number>>,
+};
 
 // G10: loans between kitchens last week (index into last week's service days). The last one has not
 // been confirmed by the kitchen that receives it.
@@ -824,7 +834,7 @@ async function main() {
             cantidad: Math.max(0, Math.round((total - donated) * 100) / 100),
             fecha: used[0]!.fecha,
             nota: "Compra · g1-demo",
-            precio_unitario: s.precio as number | null,
+            precio_unitario: Math.round(s.precio * PRICE_FACTOR[k.key as keyof typeof PRICE_FACTOR] * 100) / 100 as number | null,
             donation_id: null as string | null,
           },
           ...lots.map((x) => ({
@@ -915,6 +925,33 @@ async function main() {
       .eq("id", transfer!.id);
     throwIf(linkErr, `vincular préstamo ${supply.nombre}`);
   }
+
+  // G11: next month's joint purchase of the group.
+  const purchaseMonth = shiftMonth(month.from, 1);
+  const { data: purchase, error: purchaseErr } = await supabase
+    .from("joint_purchases")
+    .upsert({ group_id: group!.id, month: purchaseMonth }, { onConflict: "group_id,month" })
+    .select("id")
+    .single();
+  throwIf(purchaseErr, "compra conjunta");
+  const { error: delPurchaseKErr } = await supabase.from("joint_purchase_kitchens").delete().eq("purchase_id", purchase!.id);
+  throwIf(delPurchaseKErr, "limpiar ollas de la compra");
+  const { error: delPurchasePErr } = await supabase.from("joint_purchase_prices").delete().eq("purchase_id", purchase!.id);
+  throwIf(delPurchasePErr, "limpiar precios de la compra");
+  const { error: purchaseKErr } = await supabase
+    .from("joint_purchase_kitchens")
+    .insert(JOINT_PURCHASE.kitchenKeys.map((key) => ({ purchase_id: purchase!.id, comedor_id: kitchenIds[key]! })));
+  throwIf(purchaseKErr, "ollas de la compra");
+  const { error: purchasePErr } = await supabase.from("joint_purchase_prices").insert(
+    SUPPLIES.filter((sup) => JOINT_PURCHASE.prices[sup.key] != null).map((sup) => ({
+      purchase_id: purchase!.id,
+      supply_key: supplyKey(sup.nombre, sup.unidad),
+      label: sup.nombre,
+      unit: sup.unidad,
+      negotiated_price: JOINT_PURCHASE.prices[sup.key]!,
+    })),
+  );
+  throwIf(purchasePErr, "precios de la compra");
 
   // G7: municipal (PCA) and donated supplies, without price.
   const monthsWithSupplies = [...new Set(supplyDates.map((d) => d.slice(0, 7)))];
@@ -1239,7 +1276,7 @@ async function main() {
   const { error: activityErr } = await supabase.from("kitchen_activity").insert(activity);
   throwIf(activityErr, "uso diario demo");
 
-  console.log("\nDemo G1 a G10 listo en el Supabase de .env.local\n");
+  console.log("\nDemo G1 a G11 listo en el Supabase de .env.local\n");
   console.log(`Grupo:   ${GROUP_NAME}`);
   console.log(`Semana:  ${week.label} (${week.from} a ${week.to})`);
   console.log(`G6:      semana anterior ${lastWeek.label} con alertas de menú, caja y entregas`);
