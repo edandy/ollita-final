@@ -147,6 +147,24 @@ export function isG2Alert(days: number | null) {
   return days != null && days < G2_ALERT_DAYS;
 }
 
+/** Reference price, or the latest purchase price up to `asOf`. */
+export function supplyPrice(
+  precioReferencial: number | null,
+  movements: Pick<G2Movement, "tipo" | "fecha" | "precio_unitario">[],
+  asOf: string,
+) {
+  if (precioReferencial != null) return precioReferencial;
+  const lastPurchase = movements
+    .filter((m) => m.tipo === "ingreso" && m.precio_unitario != null && m.fecha <= asOf)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+  return lastPurchase?.precio_unitario ?? null;
+}
+
+export function averagePrice(prices: (number | null)[]) {
+  const known = prices.filter((p): p is number => p != null);
+  return known.length ? known.reduce((s, p) => s + p, 0) / known.length : null;
+}
+
 type KitchenSupply = {
   key: string;
   label: string;
@@ -197,9 +215,6 @@ export function buildG2Report(input: {
 
     const stock = stockAtCutoff(s.stock_actual, cutoff, moves);
     const usage = dailyUsage(cutoff, moves);
-    const lastPurchase = moves
-      .filter((m) => m.tipo === "ingreso" && m.precio_unitario != null && m.fecha <= cutoff)
-      .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
     rows.push({
       key,
       label,
@@ -208,7 +223,7 @@ export function buildG2Report(input: {
       stock,
       usage,
       days: coverageDays(stock, usage),
-      price: s.precio_referencial ?? lastPurchase?.precio_unitario ?? null,
+      price: supplyPrice(s.precio_referencial, moves, cutoff),
     });
   }
 
@@ -244,10 +259,8 @@ export function buildG2Report(input: {
   );
 
   const stockValue = rows.reduce((sum, r) => {
-    const groupPrices = (byKey.get(r.key) ?? []).map((x) => x.price).filter((p): p is number => p != null);
-    const price =
-      r.price ?? (groupPrices.length ? groupPrices.reduce((s, p) => s + p, 0) / groupPrices.length : 0);
-    return sum + r.stock * Number(price);
+    const price = r.price ?? averagePrice((byKey.get(r.key) ?? []).map((x) => x.price)) ?? 0;
+    return sum + r.stock * price;
   }, 0);
 
   // Most widely used supplies first; ties follow the alert ranking, never raw volume (units differ).

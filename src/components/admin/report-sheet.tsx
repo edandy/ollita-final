@@ -91,11 +91,13 @@ export function ReportPreview({
 export function ReportSheet({
   code,
   title,
+  cadence = "Semanal",
   sheetRef,
   children,
 }: {
   code: string;
   title: string;
+  cadence?: "Semanal" | "Mensual";
   sheetRef?: Ref<HTMLElement | null>;
   children: ReactNode;
 }) {
@@ -189,7 +191,7 @@ export function ReportSheet({
                 color: "#2656C9",
               }}
             >
-              Reporte {code} · Semanal · Grupo de ollas
+              Reporte {code} · {cadence} · Grupo de ollas
             </span>
             <h1
               style={{

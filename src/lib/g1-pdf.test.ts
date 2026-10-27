@@ -9,6 +9,7 @@ import {
   g1ImageDisplaySize,
   g1PdfFilename,
   g2PdfFilename,
+  g3PdfFilename,
 } from "./g1-pdf";
 
 describe("g1PdfFilename", () => {
@@ -30,6 +31,12 @@ describe("g2PdfFilename", () => {
     expect(g2PdfFilename("Ollas María · Centro", "2026-10-19", "2026-10-24")).toBe(
       "G2-Almacen-Ollas-Maria-Centro-2026-10-19_2026-10-24.pdf",
     );
+  });
+});
+
+describe("g3PdfFilename", () => {
+  it("names the monthly yield report after the group and month", () => {
+    expect(g3PdfFilename("VES Sur Demo", "2026-10-01")).toBe("G3-Rendimiento-VES-Sur-Demo-2026-10.pdf");
   });
 });
 

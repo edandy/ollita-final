@@ -5,6 +5,7 @@ import { todayISO } from "../src/lib/dates";
 import { emailDeDni, claveDePin } from "../src/lib/dni-cuenta";
 import { G1_DEMO_KITCHEN_STAFF, G1_DEMO_PIN } from "../src/lib/g1-demo";
 import { weekRangeMonSat } from "../src/lib/g1";
+import { baselineRange, monthRange } from "../src/lib/g3";
 import { staffToPadronRow } from "../src/lib/padron";
 import { CODE_ALPHABET, generateKitchenCode } from "../src/lib/reservas";
 
@@ -103,6 +104,31 @@ const SUPPLY_DAYS = {
   flores: { arroz: 5, aceite: 2, azucar: 3, fideos: 5, menestras: 4, leche: 7 },
 } as const;
 
+// G3: share of this month's usage each kitchen used per serving in the 3 previous months.
+// Below 1 means the kitchen now uses more than usual, which G3 reports as merma.
+const USAGE_BEFORE = { carmen: 1, cristo: 0.88, santa: 1, flores: 0.95 } as const;
+
+const DISHES = [
+  "Arroz con pollo",
+  "Lentejas con arroz",
+  "Tallarines rojos",
+  "Ají de gallina",
+  "Arroz chaufa",
+  "Estofado de pollo",
+  "Frejoles con arroz",
+  "Sudado de jurel",
+  "Tortilla de verduras",
+  "Seco de res",
+] as const;
+
+// How many dishes each kitchen rotates through; Las Flores serves each dish 3 days in a row.
+const DISH_ROTATION = {
+  carmen: { dishes: 9, run: 1 },
+  cristo: { dishes: 4, run: 1 },
+  santa: { dishes: 7, run: 1 },
+  flores: { dishes: 6, run: 3 },
+} as const;
+
 const SHARED_DNI = "88881111";
 
 const BENEFICIARIES: {
@@ -155,10 +181,8 @@ function datesInRange(from: string, to: string) {
   return days;
 }
 
-function addDaysISO(iso: string, days: number) {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+function isServiceDay(iso: string) {
+  return new Date(`${iso}T12:00:00Z`).getUTCDay() !== 0;
 }
 
 function suffix(n: number) {
@@ -190,6 +214,14 @@ async function main() {
   const today = todayISO();
   const week = weekRangeMonSat(today);
   const days = datesInRange(week.from, week.to);
+  const month = monthRange(today);
+  const historyStart = baselineRange(month.from).from;
+  const serviceDays = datesInRange(historyStart, week.to).filter(isServiceDay);
+  const dishFor = (kitchenKey: string, fecha: string) => {
+    const rotation = DISH_ROTATION[kitchenKey as keyof typeof DISH_ROTATION];
+    const i = Math.floor(serviceDays.indexOf(fecha) / rotation.run);
+    return DISHES[i % rotation.dishes];
+  };
   let codeSeq = 1;
 
   const kitchenIds: Record<string, string> = {};
@@ -262,9 +294,9 @@ async function main() {
     .from("menus")
     .delete()
     .in("comedor_id", seededIds)
-    .gte("fecha", week.from)
+    .gte("fecha", historyStart)
     .lte("fecha", week.to);
-  throwIf(delMenusErr, "borrar menús demo de la semana");
+  throwIf(delMenusErr, "borrar menús demo");
 
   const beneficiaryIds: Record<string, Record<string, string>> = {};
   for (const k of KITCHENS.filter((x) => x.seed)) {
@@ -314,7 +346,7 @@ async function main() {
           comedor_id: comedorId,
           fecha,
           publicado: true,
-          nombre_plato: "Menú del día",
+          nombre_plato: dishFor(k.key, fecha),
           descripcion: "g1-demo",
           precio: 5,
           raciones_disponibles: k.prepared,
@@ -381,8 +413,48 @@ async function main() {
     }
   }
 
-  // G2: warehouse supplies with two weeks of daily outflows, sized so each kitchen lands on SUPPLY_DAYS.
-  const supplyDates = datesInRange(addDaysISO(today, -13), today);
+  // G3: Monday–Saturday menus since the baseline start, one lumped pickup per day.
+  const historyDays = serviceDays.filter((d) => d < week.from);
+  for (const k of KITCHENS.filter((x) => x.seed)) {
+    const comedorId = kitchenIds[k.key]!;
+    const code = kitchenCodes[k.key]!;
+    const { data: rows, error: histErr } = await supabase
+      .from("menus")
+      .insert(
+        historyDays.map((fecha) => ({
+          comedor_id: comedorId,
+          fecha,
+          publicado: true,
+          nombre_plato: dishFor(k.key, fecha),
+          descripcion: "g1-demo",
+          precio: 5,
+          // The reservas trigger subtracts each pickup, leaving prepared − delivered.
+          raciones_disponibles: k.prepared,
+        })),
+      )
+      .select("id");
+    throwIf(histErr, `menús anteriores ${k.nombre}`);
+    const { error: histResErr } = await supabase.from("reservas").insert(
+      // reservas.cantidad is capped at 50, so the day's pickups go in parts.
+      (rows ?? []).flatMap((m) =>
+        splitServings(k.delivered, Math.ceil(k.delivered / 50)).map((cantidad) => ({
+          menu_id: m.id,
+          comedor_id: comedorId,
+          cantidad,
+          estado: "recogida" as const,
+          codigo: `L${code}-${suffix(codeSeq++)}`,
+          dni: null,
+          beneficiario_id: null,
+          nombre_comensal: "Entregas del día",
+        })),
+      ),
+    );
+    throwIf(histResErr, `reservas anteriores ${k.nombre}`);
+  }
+
+  // G2 + G3: outflows on every service day since the baseline start. This month uses dailyUse, so
+  // G2 lands on SUPPLY_DAYS; earlier months use USAGE_BEFORE of it, which G3 shows as merma.
+  const supplyDates = serviceDays.filter((d) => d <= today);
   const { error: delSuppliesErr } = await supabase.from("insumos").delete().in("comedor_id", seededIds);
   throwIf(delSuppliesErr, "borrar insumos demo");
   for (const k of KITCHENS.filter((x) => x.seed)) {
@@ -408,7 +480,7 @@ async function main() {
         {
           insumo_id: insumo!.id,
           tipo: "ingreso",
-          cantidad: s.dailyUse * 10,
+          cantidad: s.dailyUse * supplyDates.length,
           fecha: supplyDates[0],
           nota: "Compra · g1-demo",
           precio_unitario: s.precio,
@@ -416,7 +488,10 @@ async function main() {
         ...supplyDates.map((fecha) => ({
           insumo_id: insumo!.id,
           tipo: "salida" as const,
-          cantidad: s.dailyUse,
+          cantidad:
+            fecha >= month.from
+              ? s.dailyUse
+              : Math.round(s.dailyUse * USAGE_BEFORE[k.key as keyof typeof USAGE_BEFORE] * 100) / 100,
           fecha,
           nota: "g1-demo",
         })),
@@ -547,7 +622,7 @@ async function main() {
     }
   }
 
-  console.log("\nDemo G1 y G2 listo en el Supabase de .env.local\n");
+  console.log("\nDemo G1, G2 y G3 listo en el Supabase de .env.local\n");
   console.log(`Grupo:   ${GROUP_NAME}`);
   console.log(`Semana:  ${week.label} (${week.from} a ${week.to})`);
   console.log("Ollas:   " + KITCHENS.map((k) => k.nombre.replace(PREFIX, "")).join(", "));

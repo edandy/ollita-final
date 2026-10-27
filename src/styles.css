@@ -330,6 +330,10 @@ table.g1-tb .r {
   white-space: nowrap;
 }
 
+table.g1-tb.g3-tb td {
+  padding: 4px 8px 3px 0;
+}
+
 table.g1-tb .c {
   text-align: center;
   font-variant-numeric: tabular-nums;

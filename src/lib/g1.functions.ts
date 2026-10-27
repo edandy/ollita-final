@@ -8,6 +8,7 @@ import {
   type G1Reservation,
 } from "@/lib/g1";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { fetchAllRows } from "@/lib/supabase-paging";
 import type { GroupRow } from "@/lib/groups.functions";
 
 async function platformRoles(context: any) {
@@ -121,12 +122,17 @@ export const getG1Report = createServerFn({ method: "POST" })
     const menuIds = (menus ?? []).map((m: { id: string }) => m.id);
     let reservations: G1Reservation[] = [];
     if (menuIds.length > 0) {
-      const { data: rows, error: rErr } = await supabaseAdmin
-        .from("reservas")
-        .select("menu_id,comedor_id,cantidad,estado,codigo,dni,beneficiario_id,beneficiarios(categoria,subtipo_caso_social)")
-        .in("menu_id", menuIds);
-      if (rErr) throw new Error(friendlySupabaseError(rErr.message));
-      reservations = (rows ?? []).map((r: any) => {
+      const rows = await fetchAllRows<any>((f, t) =>
+        supabaseAdmin
+          .from("reservas")
+          .select("menu_id,comedor_id,cantidad,estado,codigo,dni,beneficiario_id,beneficiarios(categoria,subtipo_caso_social)")
+          .in("menu_id", menuIds)
+          .order("id")
+          .range(f, t),
+      ).catch((e: Error) => {
+        throw new Error(friendlySupabaseError(e.message));
+      });
+      reservations = rows.map((r: any) => {
         const ben = Array.isArray(r.beneficiarios) ? r.beneficiarios[0] : r.beneficiarios;
         return {
           menu_id: r.menu_id,

@@ -73,6 +73,9 @@ table.g1-tb .r {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+table.g1-tb.g3-tb td {
+  padding: 4px 8px 3px 0;
+}
 table.g1-tb .c {
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -106,6 +109,10 @@ export function g1PdfFilename(groupName: string, weekFrom: string, weekTo: strin
 
 export function g2PdfFilename(groupName: string, weekFrom: string, weekTo: string) {
   return `G2-Almacen-${slugify(groupName)}-${weekFrom}_${weekTo}.pdf`;
+}
+
+export function g3PdfFilename(groupName: string, monthFrom: string) {
+  return `G3-Rendimiento-${slugify(groupName)}-${monthFrom.slice(0, 7)}.pdf`;
 }
 
 function openPrintFrame() {

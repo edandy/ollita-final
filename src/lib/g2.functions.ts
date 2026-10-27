@@ -5,6 +5,7 @@ import { assignedKitchenIds, exigirAdminOSupervisor, loadGroups } from "@/lib/g1
 import { G2_USAGE_WINDOW_DAYS, buildG2Report, g2Cutoff, type G2Movement, type G2Supply } from "@/lib/g2";
 import { todayISO } from "@/lib/dates";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
+import { fetchAllRows } from "@/lib/supabase-paging";
 
 function addDaysISO(iso: string, days: number) {
   const d = new Date(`${iso}T12:00:00Z`);
@@ -72,16 +73,21 @@ export const getG2Report = createServerFn({ method: "POST" })
     const windowStart = addDaysISO(cutoff, -(G2_USAGE_WINDOW_DAYS - 1));
     let movements: G2Movement[] = [];
     if (supplies.length > 0) {
-      const { data: rows, error: mErr } = await supabaseAdmin
-        .from("movimientos_insumo")
-        .select("insumo_id,tipo,cantidad,fecha,precio_unitario")
-        .in(
-          "insumo_id",
-          supplies.map((s) => s.id),
-        )
-        .gte("fecha", windowStart);
-      if (mErr) throw new Error(friendlySupabaseError(mErr.message));
-      movements = (rows ?? []).map((m: any) => ({
+      const rows = await fetchAllRows<any>((f, t) =>
+        supabaseAdmin
+          .from("movimientos_insumo")
+          .select("insumo_id,tipo,cantidad,fecha,precio_unitario")
+          .in(
+            "insumo_id",
+            supplies.map((s) => s.id),
+          )
+          .gte("fecha", windowStart)
+          .order("id")
+          .range(f, t),
+      ).catch((e: Error) => {
+        throw new Error(friendlySupabaseError(e.message));
+      });
+      movements = rows.map((m: any) => ({
         insumo_id: m.insumo_id,
         tipo: m.tipo,
         cantidad: Number(m.cantidad) || 0,

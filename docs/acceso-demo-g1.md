@@ -47,3 +47,12 @@ Luis — DNI `88880002`, celular `999888002`.
 El seeder también carga el almacén de Virgen del Carmen, Cristo Rey, Santa María y Las Flores: seis insumos (arroz, aceite, azúcar, fideos, menestras y leche evaporada) con dos semanas de salidas diarias. Cada vez que corre, borra y vuelve a crear los insumos de esas cuatro ollas.
 
 Los días de cobertura quedan fijos (`SUPPLY_DAYS` en el script). Cristo Rey, Santa María y Las Flores tienen insumos por debajo de 4 días, así que salen en alerta en `/admin/reportes` → **G2 · Almacén del grupo**. Villa Hermosa sigue sin movimientos.
+
+## Rendimiento de insumos (G3)
+
+El G3 es mensual. El seeder crea menús de lunes a sábado desde tres meses antes del mes actual, con una entrega agrupada por día fuera de la semana actual. También crea salidas de almacén en cada día de atención.
+
+- **Platos:** cada olla rota su propia lista (`DISH_ROTATION`). Cristo Rey tiene poca variedad, y Las Flores repite cada plato 3 días seguidos.
+- **Merma:** en los meses anteriores las ollas usaron una fracción de lo que usan este mes (`USAGE_BEFORE`). Por eso Cristo Rey y Las Flores muestran merma frente a su propio promedio.
+
+Mira el reporte en `/admin/reportes` → **G3 · Rendimiento de insumos del grupo**, con el selector de mes.
