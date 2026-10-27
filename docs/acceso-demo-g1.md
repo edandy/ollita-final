@@ -120,3 +120,96 @@ El seeder (`WEEK_ALERTS`) deja dos semanas distintas.
 **Semana actual:** Cristo Rey, Santa María y Las Flores salen en Atender por sus insumos en alerta (`SUPPLY_DAYS`). Las cajas anteriores a hoy están cerradas. Los sobrantes de los días pasados quedan como `no_recogida`.
 
 Mira el reporte en `/admin/reportes` → **G6 · Alertas del grupo**, con el selector de semana.
+
+## Aliados
+
+Los aliados son organizaciones que apoyan ollas. Un aliado puede apoyar varias ollas y una olla puede tener varios aliados. Se gestionan en `/admin/aliados`, que solo ve el admin.
+
+El seeder (`ALLIES`) crea:
+
+| Aliado | Ollas |
+|---|---|
+| Red Solidaria Sur | Virgen del Carmen, Cristo Rey, Santa María |
+| Fundación Pan Compartido | Cristo Rey, Las Flores |
+| Asociación Manos Unidas | Santa María |
+
+Villa Hermosa no tiene aliado.
+
+## Impacto del grupo (G7)
+
+El G7 es mensual y va para aliados: solo muestra totales, sin nombres de comedores ni de personas. Se arma con las ollas del grupo que apoya el aliado elegido, o con todo el grupo.
+
+Reglas:
+
+- **Personas:** se redondean. Una cifra de 1 a 4 se muestra como "<5".
+- **Kilos por origen:** suman lo que entró en el mes en kg y en L. Los insumos por unidad no entran.
+- **Brecha:** es el día en que se acabó lo municipal en cada olla.
+
+El seeder deja:
+
+- **Municipalidad (PCA):** "Arroz (PCA)", "Menestras (PCA)" y "Aceite (PCA)", sin precio. Llegan el primer día de atención de cada mes. En los meses pasados se acaban el día 18 a 22, según la olla, así que setiembre muestra la brecha. Este mes todavía les quedan 10 días.
+- **Donaciones:** "Verduras (donación)", con entregas semanales.
+- **Compras:** una compra al mes por insumo comprado.
+- **Dependencia:** desde el mes pasado, las personas del padrón recogen cada 1, 2, 3 o 5 días de atención, así que salen los cuatro rangos de días.
+
+Mira el reporte en `/admin/reportes` → **G7 · Impacto del grupo**, con los selectores de aliado y de mes.
+
+## Donación al grupo (G8)
+
+El G8 se arma por lote de donación, no por período. Funciona así:
+
+1. El admin crea el donante en `/admin/donantes`.
+2. El admin crea el lote en `/admin/donaciones`, con código (`D-AAAA-NNN`), donante, grupo y fecha.
+3. Cada comedor registra su parte en Almacén → Llegó o compré → Donación → Lote de donación.
+
+Hay dos versiones:
+
+- **Donante:** los comedores van con letras.
+- **Supervisión:** los comedores van con nombre.
+
+Cómo se calcula:
+
+- **Duración:** se supone que lo donado se usa primero. Cada parte dura hasta que las salidas de ese insumo, desde que llegó, suman lo donado.
+- **Raciones:** kilos de cada comedor ÷ su rendimiento. El rendimiento son los kilos usados por ración mientras duró.
+
+El seeder (`DONATION_LOTS`) deja el donante "Alimentos Andinos S.A.C." con dos lotes, los dos ya consumidos:
+
+| Lote | Mes | Comedores | Productos |
+|---|---|---|---|
+| D-2026-041 | Mes pasado | 4 | Arroz y menestras |
+| D-2026-044 | Este mes | 3 | Arroz |
+
+Cada parte entra el mismo día que la compra del mes, y la compra baja en la misma cantidad. Así el stock de G2, G3 y G6 no cambia. En el G7, esos kilos pasan de "Compras" a "Donaciones".
+
+El seeder no pone fotos, así que el reporte muestra los recuadros de "Sin foto".
+
+Mira el reporte en `/admin/reportes` → **G8 · Donación al grupo**, con los selectores de lote y de versión.
+
+## Adopción y calidad de datos (G9)
+
+El G9 es semanal (lunes a sábado), con corte en el día de hoy, y es solo para supervisión.
+
+- **Usuarias activas:** sale de `kitchen_activity`. El panel registra una fila por socia, olla y día la primera vez que la socia lo abre. Supervisoras y admin no cuentan.
+- **Cajas sin cuadrar:** cajas cerradas cuyo ingreso guardado difiere en más de S/ 0.50 de la suma de sus transacciones de ingreso.
+- **Entregas sin ingreso:** recogidas cuyo código no aparece en ninguna venta de caja ("Entrega CODIGO" o "Reserva CODIGO") y que no tienen deuda.
+- **Duplicados:** personas activas del mismo padrón con el mismo nombre, sin contar tildes ni mayúsculas, y DNI distinto.
+- **Entregas pendientes:** reservas que siguen pendientes en días ya pasados.
+- **Datos completos:** la olla registró menú, caja y almacén en la semana.
+
+El seeder deja:
+
+- **Ventas:** una venta en caja por cada recogida. El ingreso de cada caja es la suma de sus ventas.
+- **Problemas de la semana pasada** (`DATA_ISSUES`):
+
+  | Comedor | Cajas sin cuadrar | Entregas sin venta |
+  |---|---|---|
+  | Cristo Rey | 2 | 6 |
+  | Santa María | 1 | 2 |
+  | Las Flores | 0 | 1 |
+
+- **Duplicados:** una persona repetida con otro DNI en Cristo Rey y otra en Las Flores.
+- **Uso del panel** de las cuentas demo en los últimos 60 días:
+  - La presidenta de Villa Hermosa dejó de entrar hace 14 días.
+  - La almacenera de Carmen empezó esta semana, así que "Usuarias activas" muestra "+1".
+
+Mira el reporte en `/admin/reportes` → **G9 · Adopción y calidad de datos**, con el selector de semana.

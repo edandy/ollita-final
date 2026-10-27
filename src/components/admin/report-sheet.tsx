@@ -97,6 +97,8 @@ export function ReportSheet({
   cadence = "Semanal",
   footerNote = "Consolidado sin datos de caja",
   chip = "Versión supervisión",
+  chipTone = "muted",
+  audience = "Grupo de ollas",
   orientation = "portrait",
   gap = 12,
   sheetRef,
@@ -104,9 +106,11 @@ export function ReportSheet({
 }: {
   code: string;
   title: string;
-  cadence?: "Semanal" | "Mensual" | "Mensual y anual";
+  cadence?: "Semanal" | "Mensual" | "Mensual y anual" | "Por donación";
   footerNote?: string;
   chip?: string;
+  chipTone?: "muted" | "accent";
+  audience?: string;
   orientation?: SheetOrientation;
   gap?: number;
   sheetRef?: Ref<HTMLElement | null>;
@@ -168,7 +172,7 @@ export function ReportSheet({
           color: "#2656C9",
         }}
       >
-        Reporte {code} · {cadence} · Grupo de ollas
+        Reporte {code} · {cadence} · {audience}
       </span>
       <h1
         style={{
@@ -192,16 +196,16 @@ export function ReportSheet({
         alignItems: "center",
         gap: 6,
         padding: "5px 12px",
-        border: "1px solid #475569",
+        border: `1px solid ${chipTone === "accent" ? "#2656C9" : "#475569"}`,
         borderRadius: 9999,
         fontSize: 12,
         lineHeight: "16px",
         fontWeight: 600,
-        color: "#475569",
+        color: chipTone === "accent" ? "#2656C9" : "#475569",
         whiteSpace: "nowrap",
       }}
     >
-      <ChipIcon name="visibility" size={16} />
+      <ChipIcon name={chipTone === "accent" ? "groups" : "visibility"} size={16} />
       {chip}
     </span>
   );

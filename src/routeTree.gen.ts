@@ -20,6 +20,9 @@ import { Route as ComedorIdRouteImport } from './routes/comedor.$id'
 import { Route as InvitacionTokenRouteImport } from './routes/invitacion.$token'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminActividadRouteImport } from './routes/_authenticated/admin.actividad'
+import { Route as AuthenticatedAdminAliadosRouteImport } from './routes/_authenticated/admin.aliados'
+import { Route as AuthenticatedAdminDonacionesRouteImport } from './routes/_authenticated/admin.donaciones'
+import { Route as AuthenticatedAdminDonantesRouteImport } from './routes/_authenticated/admin.donantes'
 import { Route as AuthenticatedAdminGestoresRouteImport } from './routes/_authenticated/admin.gestores'
 import { Route as AuthenticatedAdminGruposRouteImport } from './routes/_authenticated/admin.grupos'
 import { Route as AuthenticatedAdminNuevaRouteImport } from './routes/_authenticated/admin.nueva'
@@ -91,6 +94,24 @@ const AuthenticatedAdminActividadRoute =
   AuthenticatedAdminActividadRouteImport.update({
     id: '/actividad',
     path: '/actividad',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminAliadosRoute =
+  AuthenticatedAdminAliadosRouteImport.update({
+    id: '/aliados',
+    path: '/aliados',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminDonacionesRoute =
+  AuthenticatedAdminDonacionesRouteImport.update({
+    id: '/donaciones',
+    path: '/donaciones',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminDonantesRoute =
+  AuthenticatedAdminDonantesRouteImport.update({
+    id: '/donantes',
+    path: '/donantes',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminGestoresRoute =
@@ -201,6 +222,9 @@ export interface FileRoutesByFullPath {
   '/comedor/$id': typeof ComedorIdRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/admin/actividad': typeof AuthenticatedAdminActividadRoute
+  '/admin/aliados': typeof AuthenticatedAdminAliadosRoute
+  '/admin/donaciones': typeof AuthenticatedAdminDonacionesRoute
+  '/admin/donantes': typeof AuthenticatedAdminDonantesRoute
   '/admin/gestores': typeof AuthenticatedAdminGestoresRoute
   '/admin/grupos': typeof AuthenticatedAdminGruposRoute
   '/admin/nueva': typeof AuthenticatedAdminNuevaRoute
@@ -228,6 +252,9 @@ export interface FileRoutesByTo {
   '/comedor/$id': typeof ComedorIdRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/admin/actividad': typeof AuthenticatedAdminActividadRoute
+  '/admin/aliados': typeof AuthenticatedAdminAliadosRoute
+  '/admin/donaciones': typeof AuthenticatedAdminDonacionesRoute
+  '/admin/donantes': typeof AuthenticatedAdminDonantesRoute
   '/admin/gestores': typeof AuthenticatedAdminGestoresRoute
   '/admin/grupos': typeof AuthenticatedAdminGruposRoute
   '/admin/nueva': typeof AuthenticatedAdminNuevaRoute
@@ -259,6 +286,9 @@ export interface FileRoutesById {
   '/comedor/$id': typeof ComedorIdRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/_authenticated/admin/actividad': typeof AuthenticatedAdminActividadRoute
+  '/_authenticated/admin/aliados': typeof AuthenticatedAdminAliadosRoute
+  '/_authenticated/admin/donaciones': typeof AuthenticatedAdminDonacionesRoute
+  '/_authenticated/admin/donantes': typeof AuthenticatedAdminDonantesRoute
   '/_authenticated/admin/gestores': typeof AuthenticatedAdminGestoresRoute
   '/_authenticated/admin/grupos': typeof AuthenticatedAdminGruposRoute
   '/_authenticated/admin/nueva': typeof AuthenticatedAdminNuevaRoute
@@ -290,6 +320,9 @@ export interface FileRouteTypes {
     | '/comedor/$id'
     | '/invitacion/$token'
     | '/admin/actividad'
+    | '/admin/aliados'
+    | '/admin/donaciones'
+    | '/admin/donantes'
     | '/admin/gestores'
     | '/admin/grupos'
     | '/admin/nueva'
@@ -317,6 +350,9 @@ export interface FileRouteTypes {
     | '/comedor/$id'
     | '/invitacion/$token'
     | '/admin/actividad'
+    | '/admin/aliados'
+    | '/admin/donaciones'
+    | '/admin/donantes'
     | '/admin/gestores'
     | '/admin/grupos'
     | '/admin/nueva'
@@ -347,6 +383,9 @@ export interface FileRouteTypes {
     | '/comedor/$id'
     | '/invitacion/$token'
     | '/_authenticated/admin/actividad'
+    | '/_authenticated/admin/aliados'
+    | '/_authenticated/admin/donaciones'
+    | '/_authenticated/admin/donantes'
     | '/_authenticated/admin/gestores'
     | '/_authenticated/admin/grupos'
     | '/_authenticated/admin/nueva'
@@ -454,6 +493,27 @@ declare module '@tanstack/react-router' {
       path: '/actividad'
       fullPath: '/admin/actividad'
       preLoaderRoute: typeof AuthenticatedAdminActividadRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/aliados': {
+      id: '/_authenticated/admin/aliados'
+      path: '/aliados'
+      fullPath: '/admin/aliados'
+      preLoaderRoute: typeof AuthenticatedAdminAliadosRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/donaciones': {
+      id: '/_authenticated/admin/donaciones'
+      path: '/donaciones'
+      fullPath: '/admin/donaciones'
+      preLoaderRoute: typeof AuthenticatedAdminDonacionesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/donantes': {
+      id: '/_authenticated/admin/donantes'
+      path: '/donantes'
+      fullPath: '/admin/donantes'
+      preLoaderRoute: typeof AuthenticatedAdminDonantesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/gestores': {
@@ -580,6 +640,9 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminActividadRoute: typeof AuthenticatedAdminActividadRoute
+  AuthenticatedAdminAliadosRoute: typeof AuthenticatedAdminAliadosRoute
+  AuthenticatedAdminDonacionesRoute: typeof AuthenticatedAdminDonacionesRoute
+  AuthenticatedAdminDonantesRoute: typeof AuthenticatedAdminDonantesRoute
   AuthenticatedAdminGestoresRoute: typeof AuthenticatedAdminGestoresRoute
   AuthenticatedAdminGruposRoute: typeof AuthenticatedAdminGruposRoute
   AuthenticatedAdminNuevaRoute: typeof AuthenticatedAdminNuevaRoute
@@ -590,6 +653,9 @@ interface AuthenticatedAdminRouteChildren {
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminActividadRoute: AuthenticatedAdminActividadRoute,
+  AuthenticatedAdminAliadosRoute: AuthenticatedAdminAliadosRoute,
+  AuthenticatedAdminDonacionesRoute: AuthenticatedAdminDonacionesRoute,
+  AuthenticatedAdminDonantesRoute: AuthenticatedAdminDonantesRoute,
   AuthenticatedAdminGestoresRoute: AuthenticatedAdminGestoresRoute,
   AuthenticatedAdminGruposRoute: AuthenticatedAdminGruposRoute,
   AuthenticatedAdminNuevaRoute: AuthenticatedAdminNuevaRoute,

@@ -13,6 +13,9 @@ import {
   g4PdfFilename,
   g5PdfFilename,
   g6PdfFilename,
+  g7PdfFilename,
+  g8PdfFilename,
+  g9PdfFilename,
   pdfPage,
   sheetSize,
 } from "./g1-pdf";
@@ -62,6 +65,30 @@ describe("g6PdfFilename", () => {
   it("names the alerts report after the group and week", () => {
     expect(g6PdfFilename("VES Sur Demo", "2026-10-19", "2026-10-24")).toBe(
       "G6-Alertas-VES-Sur-Demo-2026-10-19_2026-10-24.pdf",
+    );
+  });
+});
+
+describe("g7PdfFilename", () => {
+  it("names the impact report after the group, the ally and the month", () => {
+    expect(g7PdfFilename("VES Sur Demo", "Red Solidaria Sur", "2026-09-01")).toBe(
+      "G7-Impacto-VES-Sur-Demo-Red-Solidaria-Sur-2026-09.pdf",
+    );
+    expect(g7PdfFilename("VES Sur Demo", null, "2026-09-01")).toBe("G7-Impacto-VES-Sur-Demo-2026-09.pdf");
+  });
+});
+
+describe("g8PdfFilename", () => {
+  it("names the donation report after the lot and marks the supervision copy", () => {
+    expect(g8PdfFilename("D-2026-044", "donor")).toBe("G8-Donacion-D-2026-044.pdf");
+    expect(g8PdfFilename("D-2026-044", "supervision")).toBe("G8-Donacion-D-2026-044-supervision.pdf");
+  });
+});
+
+describe("g9PdfFilename", () => {
+  it("names the adoption report after the group and week", () => {
+    expect(g9PdfFilename("VES Sur Demo", "2026-10-19", "2026-10-24")).toBe(
+      "G9-Adopcion-VES-Sur-Demo-2026-10-19_2026-10-24.pdf",
     );
   });
 });

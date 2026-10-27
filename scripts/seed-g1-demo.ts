@@ -5,7 +5,7 @@ import { todayISO } from "../src/lib/dates";
 import { emailDeDni, claveDePin } from "../src/lib/dni-cuenta";
 import { G1_DEMO_KITCHEN_STAFF, G1_DEMO_PIN } from "../src/lib/g1-demo";
 import { shiftWeek, weekRangeMonSat } from "../src/lib/g1";
-import { baselineRange, monthRange } from "../src/lib/g3";
+import { baselineRange, monthRange, shiftMonth } from "../src/lib/g3";
 import { staffToPadronRow, type CareGroup, type Sex } from "../src/lib/padron";
 import { CODE_ALPHABET, generateKitchenCode } from "../src/lib/reservas";
 
@@ -107,6 +107,68 @@ const SUPPLY_DAYS = {
 // G3: share of this month's usage each kitchen used per serving in the 3 previous months.
 // Below 1 means the kitchen now uses more than usual, which G3 reports as merma.
 const USAGE_BEFORE = { carmen: 1, cristo: 0.88, santa: 1, flores: 0.95 } as const;
+
+// G7: municipal food (PCA) arrives on the first service day of each month and, in past months, runs out
+// on PCA_LAST_DAY, which is the report's "brecha de fin de mes". This month it still has PCA_STOCK_DAYS
+// left, so G2 and G6 show no new alerts. Neither PCA nor donations carry a price, so G3 leaves them out.
+const PCA_SUPPLIES = [
+  { nombre: "Arroz (PCA)", unidad: "kg", dailyUse: 6 },
+  { nombre: "Menestras (PCA)", unidad: "kg", dailyUse: 2 },
+  { nombre: "Aceite (PCA)", unidad: "L", dailyUse: 0.8 },
+] as const;
+const PCA_LAST_DAY = { carmen: 22, cristo: 18, santa: 20, flores: 21 } as const;
+const PCA_STOCK_DAYS = 10;
+// G7: donated vegetables arrive weekly; the stock keeps a buffer of DONATION_STOCK_DAYS.
+const DONATION = { nombre: "Verduras (donación)", unidad: "kg", dailyUse: 4 } as const;
+const DONATION_STOCK_DAYS = 8;
+
+// G7: allies (fictional) and the kitchens they support. Cristo Rey and Santa María have two allies each;
+// Villa Hermosa has none.
+const ALLIES: { name: string; kitchenKeys: string[] }[] = [
+  { name: "Red Solidaria Sur", kitchenKeys: ["carmen", "cristo", "santa"] },
+  { name: "Fundación Pan Compartido", kitchenKeys: ["cristo", "flores"] },
+  { name: "Asociación Manos Unidas", kitchenKeys: ["santa"] },
+];
+
+// G8: a donor and two lots, received on the first service day of last month and of this month. Each
+// kitchen records its share (kg) into the supply it buys, and that month's purchase drops by the same
+// amount, so the stock on every date (G2, G3, G6) stays as before.
+const DONOR = "Alimentos Andinos S.A.C.";
+const DONATION_LOTS: { code: string; monthsAgo: number; shares: Record<string, Partial<Record<"arroz" | "menestras", number>>> }[] = [
+  {
+    code: "D-2026-041",
+    monthsAgo: 1,
+    shares: {
+      carmen: { arroz: 120, menestras: 16 },
+      cristo: { arroz: 100, menestras: 14 },
+      santa: { arroz: 90, menestras: 12 },
+      flores: { arroz: 80, menestras: 10 },
+    },
+  },
+  { code: "D-2026-044", monthsAgo: 0, shares: { carmen: { arroz: 150 }, cristo: { arroz: 80 }, flores: { arroz: 110 } } },
+];
+
+// G9: last week's data problems, by index into last week's service days for cash days. Every other
+// pickup has its sale in caja; `unpaid` pickups of last week have none, and `unbalancedDays` are closed
+// with S/ 15 more than their sales.
+const DATA_ISSUES: Record<"carmen" | "cristo" | "santa" | "flores", { unbalancedDays: number[]; unpaid: number }> = {
+  carmen: { unbalancedDays: [], unpaid: 0 },
+  cristo: { unbalancedDays: [0, 1], unpaid: 6 },
+  santa: { unbalancedDays: [2], unpaid: 2 },
+  flores: { unbalancedDays: [], unpaid: 1 },
+};
+// G9: someone registered twice with another DNI (index into the kitchen's generated padrón).
+const DUPLICATE_PEOPLE: { kitchenKey: keyof typeof PADRON; index: number }[] = [
+  { kitchenKey: "cristo", index: 1 },
+  { kitchenKey: "flores", index: 2 },
+];
+// G9: panel use of the demo accounts. Villa Hermosa's presidenta stopped 14 days ago; Gloria Ccahuana
+// (Carmen) started this week, so "usuarias activas" shows +1.
+const ACTIVITY_STOPPED_DAYS_AGO: Record<string, number> = { "88883105": 14 };
+const ACTIVITY_STARTED_THIS_WEEK = new Set(["88883112"]);
+
+// G7 dependency: each padrón user comes every 1, 2, 3 or 5 service days.
+const PICKUP_EVERY = [1, 2, 3, 5];
 
 const DISHES = [
   "Arroz con pollo",
@@ -234,7 +296,8 @@ function generatedPadron(kitchenIndex: number, kitchenKey: keyof typeof PADRON, 
     const dni = `8889${String(kitchenIndex + 1).padStart(2, "0")}${String(i).padStart(2, "0")}`;
     return {
       dni,
-      nombre: `${FIRST_NAMES[(i + kitchenIndex) % FIRST_NAMES.length]} ${LAST_NAMES[(i * 3 + kitchenIndex) % LAST_NAMES.length]}`,
+      // Two surnames keep names unique across padrones, so G9 only flags the planted duplicates.
+      nombre: `${FIRST_NAMES[(i + kitchenIndex) % FIRST_NAMES.length]} ${LAST_NAMES[(i * 3 + kitchenIndex) % LAST_NAMES.length]} ${LAST_NAMES[(i * 7 + kitchenIndex * 3 + 1) % LAST_NAMES.length]}`,
       categoria: careGroup === "older_adult" ? ("caso_social" as const) : i % 2 ? ("publico_recurrente" as const) : ("socia_familia" as const),
       subtipo: careGroup === "older_adult" ? ("adulto_mayor" as const) : null,
       careGroup,
@@ -411,6 +474,23 @@ async function main() {
   );
   throwIf(linkErr, "asignar ollas al grupo");
 
+  // G7: allies, upserted by name, with their kitchens replaced.
+  for (const a of ALLIES) {
+    let { data: ally, error: allyFindErr } = await supabase.from("allies").select("id").ilike("name", a.name).maybeSingle();
+    throwIf(allyFindErr, `buscar aliado ${a.name}`);
+    if (!ally) {
+      const created = await supabase.from("allies").insert({ name: a.name }).select("id").single();
+      throwIf(created.error, `crear aliado ${a.name}`);
+      ally = created.data;
+    }
+    const { error: delAllyErr } = await supabase.from("ally_kitchens").delete().eq("ally_id", ally!.id);
+    throwIf(delAllyErr, `limpiar ollas de ${a.name}`);
+    const { error: allyLinkErr } = await supabase
+      .from("ally_kitchens")
+      .insert(a.kitchenKeys.map((key) => ({ ally_id: ally!.id, comedor_id: kitchenIds[key]! })));
+    throwIf(allyLinkErr, `ollas de ${a.name}`);
+  }
+
   // Menus are seeded Monday to Saturday, so the kitchens serve those days (G5 shift coverage).
   const { error: daysErr } = await supabase
     .from("comedores")
@@ -488,6 +568,25 @@ async function main() {
       throwIf(error, `padrón de ${k.nombre}`);
       for (const r of saved ?? []) beneficiaryIds[k.key]![r.dni] = r.id;
     }
+  }
+
+  // G9: duplicated people, same name with another DNI.
+  for (const dup of DUPLICATE_PEOPLE) {
+    const kitchenIndex = Object.keys(PADRON).indexOf(dup.kitchenKey);
+    const original = generated[dup.kitchenKey][dup.index]!;
+    const { error: dupErr } = await supabase.from("beneficiarios").upsert(
+      {
+        comedor_id: kitchenIds[dup.kitchenKey]!,
+        nombre_completo: original.nombre,
+        dni: `8889${String(kitchenIndex + 1).padStart(2, "0")}9${dup.index}`,
+        categoria: original.categoria,
+        subtipo_caso_social: original.subtipo,
+        activo: true,
+        carga_familiar: original.carga,
+      },
+      { onConflict: "comedor_id,dni" },
+    );
+    throwIf(dupErr, `duplicado ${original.nombre}`);
   }
 
   for (const k of KITCHENS.filter((x) => x.seed)) {
@@ -598,8 +697,11 @@ async function main() {
     const pickupRows = (rows ?? []).flatMap((m) => {
       const dayIndex = historyDays.indexOf(m.fecha);
       const fecha = m.fecha;
-      // Each user comes about every third day.
-      const named = fecha >= month.from ? users.filter((_, j) => (j + dayIndex) % 3 === 0) : [];
+      // Since last month each user comes every 1, 2, 3 or 5 service days (G4 usage, G7 dependency).
+      const named =
+        fecha >= shiftMonth(month.from, -1)
+          ? users.filter((_, j) => (j + dayIndex) % PICKUP_EVERY[j % PICKUP_EVERY.length]! === 0)
+          : [];
       const lumped = k.delivered - named.length;
       return [
         ...named.map((b) => ({
@@ -641,6 +743,28 @@ async function main() {
     throwIf(histResErr, `reservas anteriores ${k.nombre}`);
   }
 
+  // G8: donor and lots, upserted by name and code.
+  let { data: donor, error: donorFindErr } = await supabase.from("donors").select("id").ilike("name", DONOR).maybeSingle();
+  throwIf(donorFindErr, "buscar donante");
+  if (!donor) {
+    const created = await supabase.from("donors").insert({ name: DONOR }).select("id").single();
+    throwIf(created.error, "crear donante");
+    donor = created.data;
+  }
+  const lotIds: Record<string, string> = {};
+  const lotMonth = (lot: (typeof DONATION_LOTS)[number]) => shiftMonth(month.from, -lot.monthsAgo).slice(0, 7);
+  for (const lot of DONATION_LOTS) {
+    const receivedOn = serviceDays.find((d) => d.startsWith(lotMonth(lot)))!;
+    const row = { code: lot.code, donor_id: donor!.id, group_id: group!.id, received_on: receivedOn };
+    const { data: existing, error: lotFindErr } = await supabase.from("donations").select("id").eq("code", lot.code).maybeSingle();
+    throwIf(lotFindErr, `buscar lote ${lot.code}`);
+    const saved = existing
+      ? await supabase.from("donations").update(row).eq("id", existing.id).select("id").single()
+      : await supabase.from("donations").insert(row).select("id").single();
+    throwIf(saved.error, `lote ${lot.code}`);
+    lotIds[lot.code] = saved.data!.id;
+  }
+
   // G2 + G3: outflows on every service day since the baseline start. This month uses dailyUse, so
   // G2 lands on SUPPLY_DAYS; earlier months use USAGE_BEFORE of it, which G3 shows as merma.
   const supplyDates = serviceDays.filter((d) => d <= today);
@@ -665,28 +789,121 @@ async function main() {
         .select("id")
         .single();
       throwIf(insErr, `insumo ${s.nombre} en ${k.nombre}`);
-      const { error: movErr } = await supabase.from("movimientos_insumo").insert([
-        {
-          insumo_id: insumo!.id,
-          tipo: "ingreso",
-          cantidad: s.dailyUse * supplyDates.length,
-          fecha: supplyDates[0],
-          nota: "Compra · g1-demo",
-          precio_unitario: s.precio,
-        },
-        ...supplyDates.map((fecha) => ({
-          insumo_id: insumo!.id,
-          tipo: "salida" as const,
-          cantidad:
-            fecha >= month.from
-              ? s.dailyUse
-              : Math.round(s.dailyUse * USAGE_BEFORE[k.key as keyof typeof USAGE_BEFORE] * 100) / 100,
-          fecha,
-          nota: "g1-demo",
-        })),
-      ]);
+      const outflows = supplyDates.map((fecha) => ({
+        insumo_id: insumo!.id,
+        tipo: "salida" as const,
+        cantidad:
+          fecha >= month.from
+            ? s.dailyUse
+            : Math.round(s.dailyUse * USAGE_BEFORE[k.key as keyof typeof USAGE_BEFORE] * 100) / 100,
+        fecha,
+        nota: "g1-demo",
+      }));
+      // G7: one purchase per month for that month's use, so the stock never dips below today's level.
+      // G8: a donated share arrives the same day and the purchase drops by it.
+      const purchases = [...new Set(supplyDates.map((d) => d.slice(0, 7)))].flatMap((ym) => {
+        const used = outflows.filter((o) => o.fecha.startsWith(ym));
+        const total = Math.round(used.reduce((sum, o) => sum + o.cantidad, 0) * 100) / 100;
+        const lots = DONATION_LOTS.filter((lot) => lotMonth(lot) === ym)
+          .map((lot) => ({ lot, qty: lot.shares[k.key]?.[s.key as "arroz" | "menestras"] ?? 0 }))
+          .filter((x) => x.qty > 0);
+        const donated = lots.reduce((sum, x) => sum + x.qty, 0);
+        return [
+          {
+            insumo_id: insumo!.id,
+            tipo: "ingreso" as const,
+            cantidad: Math.max(0, Math.round((total - donated) * 100) / 100),
+            fecha: used[0]!.fecha,
+            nota: "Compra · g1-demo",
+            precio_unitario: s.precio as number | null,
+            donation_id: null as string | null,
+          },
+          ...lots.map((x) => ({
+            insumo_id: insumo!.id,
+            tipo: "ingreso" as const,
+            cantidad: x.qty,
+            fecha: used[0]!.fecha,
+            nota: "Donación · g1-demo",
+            precio_unitario: null,
+            donation_id: lotIds[x.lot.code]!,
+          })),
+        ];
+      });
+      const { error: movErr } = await supabase.from("movimientos_insumo").insert([...purchases, ...outflows]);
       throwIf(movErr, `movimientos ${s.nombre} en ${k.nombre}`);
     }
+  }
+
+  // G7: municipal (PCA) and donated supplies, without price.
+  const monthsWithSupplies = [...new Set(supplyDates.map((d) => d.slice(0, 7)))];
+  for (const k of KITCHENS.filter((x) => x.seed)) {
+    const comedorId = kitchenIds[k.key]!;
+    const lastDay = PCA_LAST_DAY[k.key as keyof typeof PCA_LAST_DAY];
+    for (const s of PCA_SUPPLIES) {
+      const { data: insumo, error: insErr } = await supabase
+        .from("insumos")
+        .insert({
+          comedor_id: comedorId,
+          nombre: s.nombre,
+          unidad: s.unidad,
+          stock_actual: s.dailyUse * PCA_STOCK_DAYS,
+          consumo_diario_promedio: 0,
+          precio_referencial: null,
+          origen: "municipalidad",
+        })
+        .select("id")
+        .single();
+      throwIf(insErr, `insumo ${s.nombre} en ${k.nombre}`);
+      const rows = monthsWithSupplies.flatMap((ym) => {
+        const current = ym === today.slice(0, 7);
+        const used = supplyDates.filter((d) => d.startsWith(ym) && (current || Number(d.slice(8)) <= lastDay));
+        if (used.length === 0) return [];
+        return [
+          {
+            insumo_id: insumo!.id,
+            tipo: "ingreso" as const,
+            cantidad: s.dailyUse * (used.length + (current ? PCA_STOCK_DAYS : 0)),
+            fecha: used[0]!,
+            nota: "Entrega PCA · g1-demo",
+          },
+          ...used.map((fecha) => ({ insumo_id: insumo!.id, tipo: "salida" as const, cantidad: s.dailyUse, fecha, nota: "g1-demo" })),
+        ];
+      });
+      const { error: movErr } = await supabase.from("movimientos_insumo").insert(rows);
+      throwIf(movErr, `movimientos ${s.nombre} en ${k.nombre}`);
+    }
+
+    const { data: donated, error: donErr } = await supabase
+      .from("insumos")
+      .insert({
+        comedor_id: comedorId,
+        nombre: DONATION.nombre,
+        unidad: DONATION.unidad,
+        stock_actual: DONATION.dailyUse * DONATION_STOCK_DAYS,
+        consumo_diario_promedio: 0,
+        precio_referencial: null,
+        origen: "donado",
+      })
+      .select("id")
+      .single();
+    throwIf(donErr, `insumo ${DONATION.nombre} en ${k.nombre}`);
+    const weeks = [...new Set(supplyDates.map((d) => weekRangeMonSat(d).from))];
+    const donationRows = weeks.flatMap((weekFrom, i) => {
+      const used = supplyDates.filter((d) => weekRangeMonSat(d).from === weekFrom);
+      return [
+        {
+          insumo_id: donated!.id,
+          tipo: "ingreso" as const,
+          // The first delivery also brings the buffer the stock keeps.
+          cantidad: DONATION.dailyUse * (used.length + (i === 0 ? DONATION_STOCK_DAYS : 0)),
+          fecha: used[0]!,
+          nota: "Donación · g1-demo",
+        },
+        ...used.map((fecha) => ({ insumo_id: donated!.id, tipo: "salida" as const, cantidad: DONATION.dailyUse, fecha, nota: "g1-demo" })),
+      ];
+    });
+    const { error: donMovErr } = await supabase.from("movimientos_insumo").insert(donationRows);
+    throwIf(donMovErr, `movimientos ${DONATION.nombre} en ${k.nombre}`);
   }
 
   // G6: one cash day per service day up to today, closed except today's and last week's open ones.
@@ -706,6 +923,70 @@ async function main() {
       });
     const { error: cashErr } = await supabase.from("caja_dias").upsert(rows, { onConflict: "comedor_id,fecha" });
     throwIf(cashErr, `caja ${k.nombre}`);
+
+    // G9: one sale per pickup, then each day's income is the sum of its sales.
+    const comedorId = kitchenIds[k.key]!;
+    const issues = DATA_ISSUES[k.key as keyof typeof DATA_ISSUES];
+    const { data: cashRows, error: cashReadErr } = await supabase
+      .from("caja_dias")
+      .select("id,fecha,cerrado")
+      .eq("comedor_id", comedorId)
+      .gte("fecha", historyStart)
+      .lte("fecha", today);
+    throwIf(cashReadErr, `leer caja ${k.nombre}`);
+    const cashByDate = new Map((cashRows ?? []).map((c) => [c.fecha as string, c]));
+    for (let i = 0; i < (cashRows ?? []).length; i += 300) {
+      const { error: delTrxErr } = await supabase
+        .from("transacciones")
+        .delete()
+        .in("caja_dia_id", cashRows!.slice(i, i + 300).map((c) => c.id));
+      throwIf(delTrxErr, `borrar ventas ${k.nombre}`);
+    }
+    const pickups: { codigo: string; cantidad: number; fecha: string }[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("reservas")
+        .select("codigo,cantidad,menus!inner(fecha)")
+        .eq("comedor_id", comedorId)
+        .eq("estado", "recogida")
+        .gte("menus.fecha", historyStart)
+        .lte("menus.fecha", today)
+        .order("id")
+        .range(from, from + 999);
+      throwIf(error, `leer recogidas ${k.nombre}`);
+      pickups.push(...(data ?? []).map((r: any) => ({ codigo: r.codigo, cantidad: r.cantidad, fecha: r.menus.fecha })));
+      if (!data || data.length < 1000) break;
+    }
+    const unpaid = new Set(
+      pickups
+        .filter((p) => p.fecha >= lastWeek.from && p.fecha <= lastWeek.to)
+        .slice(0, issues.unpaid)
+        .map((p) => p.codigo),
+    );
+    const sales = pickups
+      .filter((p) => cashByDate.has(p.fecha) && !unpaid.has(p.codigo))
+      .map((p) => ({
+        caja_dia_id: cashByDate.get(p.fecha)!.id,
+        tipo: "ingreso" as const,
+        categoria: "venta_menus" as const,
+        monto: p.cantidad * 5,
+        payment_method: "efectivo",
+        nota: `Entrega ${p.codigo} · g1-demo`,
+      }));
+    for (let i = 0; i < sales.length; i += 500) {
+      const { error: trxErr } = await supabase.from("transacciones").insert(sales.slice(i, i + 500));
+      throwIf(trxErr, `ventas ${k.nombre}`);
+    }
+    const income = new Map<string, number>();
+    for (const sale of sales) income.set(sale.caja_dia_id, (income.get(sale.caja_dia_id) ?? 0) + sale.monto);
+    const totals = rows.map((r) => {
+      const cash = cashByDate.get(r.fecha);
+      const off = issues.unbalancedDays.includes(lastWeekDays.indexOf(r.fecha)) ? 15 : 0;
+      const total = (cash ? income.get(cash.id) ?? 0 : 0) + off;
+      return { ...r, total_ingresos: total, ganancia: total };
+    });
+    const { error: totalsErr } = await supabase.from("caja_dias").upsert(totals, { onConflict: "comedor_id,fecha" });
+    throwIf(totalsErr, `totales de caja ${k.nombre}`);
   }
 
   // G5: cronograma since the history start. Each kitchen staffs its shifts from its own padrón and skips
@@ -782,6 +1063,7 @@ async function main() {
     ...G1_DEMO_KITCHEN_STAFF.map((st) => ({ ...st, sex: "female" as Sex })),
     ...BOARD_STAFF,
   ];
+  const staffUserIds: { dni: string; userId: string; comedorId: string }[] = [];
   for (const staff of kitchenStaff) {
     const comedorId = kitchenIds[staff.kitchenKey];
     if (!comedorId) throw new Error(`Falta olla ${staff.kitchenKey}`);
@@ -806,6 +1088,7 @@ async function main() {
       });
       throwIf(updated.error, `actualizar gestora ${staff.dni}`);
     }
+    staffUserIds.push({ dni: staff.dni, userId: user.id, comedorId });
 
     const { data: member, error: memberFindErr } = await supabase
       .from("usuarios_comedor")
@@ -859,10 +1142,27 @@ async function main() {
     }
   }
 
-  console.log("\nDemo G1 a G6 listo en el Supabase de .env.local\n");
+  // G9: panel use of the demo accounts in the last 60 days, on about two of every three service days.
+  const { error: delActivityErr } = await supabase.from("kitchen_activity").delete().in("comedor_id", allKitchenIds);
+  throwIf(delActivityErr, "borrar uso diario demo");
+  const activityDays = datesInRange(addDays(today, -59), today).filter(isServiceDay);
+  const activity = staffUserIds.flatMap(({ dni, userId, comedorId }) => {
+    const stopped = ACTIVITY_STOPPED_DAYS_AGO[dni];
+    return activityDays
+      .filter((day, i) => (i + Number(dni.slice(-2))) % 3 !== 0)
+      .filter((day) => (stopped == null || day <= addDays(today, -stopped)))
+      .filter((day) => !ACTIVITY_STARTED_THIS_WEEK.has(dni) || day >= week.from)
+      .map((day) => ({ user_id: userId, comedor_id: comedorId, day }));
+  });
+  const { error: activityErr } = await supabase.from("kitchen_activity").insert(activity);
+  throwIf(activityErr, "uso diario demo");
+
+  console.log("\nDemo G1 a G9 listo en el Supabase de .env.local\n");
   console.log(`Grupo:   ${GROUP_NAME}`);
   console.log(`Semana:  ${week.label} (${week.from} a ${week.to})`);
   console.log(`G6:      semana anterior ${lastWeek.label} con alertas de menú, caja y entregas`);
+  console.log("Aliados: " + ALLIES.map((a) => a.name).join(", "));
+  console.log(`G8:      ${DONOR}, lotes ${DONATION_LOTS.map((l) => l.code).join(" y ")}`);
   console.log("Ollas:   " + KITCHENS.map((k) => k.nombre.replace(PREFIX, "")).join(", "));
   console.log("\nSupervisoras — /auth con correo, luego /admin/reportes:\n");
   for (const s of SUPERVISORS) {

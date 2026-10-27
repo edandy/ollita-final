@@ -1,10 +1,13 @@
 import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Home, Wallet, UtensilsCrossed, Menu as MenuIcon, LogOut } from "lucide-react";
 import { useMiComedor } from "@/lib/useMiComedor";
 import { puede, type Accion, type Cargo } from "@/lib/permisos";
 import { SUPERVISOR_KITCHEN_STORAGE_KEY, ADMIN_KITCHEN_STORAGE_KEY } from "@/lib/access";
 import { KitchenAccessContext } from "@/lib/kitchen-access-context";
+import { shouldLogActivity } from "@/lib/kitchen-activity";
+import { todayISO } from "@/lib/dates";
 import logoColor from "@/assets/logo-ollita.svg";
 
 export const Route = createFileRoute("/_authenticated/panel")({
@@ -12,9 +15,16 @@ export const Route = createFileRoute("/_authenticated/panel")({
   component: PanelLayout,
 });
 
+const loggedActivity = new Set<string>();
+
 function PanelLayout() {
   const navigate = useNavigate();
   const { vinculo, comedor, loading, platformRole } = useMiComedor();
+  // G9 "usuarias activas": the server only logs kitchen members, so supervisors and admins are skipped.
+  useEffect(() => {
+    if (!comedor?.id || !vinculo || !shouldLogActivity(loggedActivity, comedor.id, todayISO())) return;
+    void supabase.rpc("log_kitchen_activity", { p_comedor_id: comedor.id }).then(() => undefined);
+  }, [comedor?.id, vinculo]);
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
     navigate({ to: "/" });

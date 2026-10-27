@@ -12,6 +12,67 @@ function friendly(e: unknown): never {
   throw new Error(friendlySupabaseError(e instanceof Error ? e.message : String(e)));
 }
 
+/** Loads and builds G5 for these kitchens; G7 reuses its hours and board figures. */
+export async function loadG5Report(
+  supabaseAdmin: any,
+  input: { groupName: string; monthStart: string; today: string; kitchenIds: string[] },
+) {
+  const { kitchenIds } = input;
+  const month = monthRange(input.monthStart);
+  const [kitchens, members, people, shifts, assignments] = await Promise.all([
+    fetchAllRows<G5Kitchen>((f, t) =>
+      supabaseAdmin.from("comedores").select("id,nombre,dias_atencion").in("id", kitchenIds).order("id").range(f, t),
+    ),
+    fetchAllRows<G5Member>((f, t) =>
+      supabaseAdmin
+        .from("usuarios_comedor")
+        .select("comedor_id,cargo,dni")
+        .in("comedor_id", kitchenIds)
+        .order("id")
+        .range(f, t),
+    ),
+    fetchAllRows<G5Person>((f, t) =>
+      supabaseAdmin
+        .from("beneficiarios")
+        .select("comedor_id,dni,sex")
+        .in("comedor_id", kitchenIds)
+        .not("sex", "is", null)
+        .order("id")
+        .range(f, t),
+    ),
+    fetchAllRows<G5Shift>((f, t) =>
+      supabaseAdmin
+        .from("cronograma")
+        .select("comedor_id,fecha,socias")
+        .in("comedor_id", kitchenIds)
+        .gte("fecha", month.from)
+        .lte("fecha", month.to)
+        .order("id")
+        .range(f, t),
+    ),
+    fetchAllRows<{ comedor_id: string }>((f, t) =>
+      supabaseAdmin
+        .from("supervisor_assignments")
+        .select("comedor_id")
+        .in("comedor_id", kitchenIds)
+        .order("id")
+        .range(f, t),
+    ),
+  ]).catch(friendly);
+
+  const byId = new Map(kitchens.map((k) => [k.id, k]));
+  return buildG5Report({
+    groupName: input.groupName,
+    monthStart: input.monthStart,
+    today: input.today,
+    kitchens: kitchenIds.map((id) => byId.get(id) ?? { id, nombre: "Olla", dias_atencion: [] }),
+    members,
+    people,
+    shifts,
+    supervisedKitchenIds: assignments.map((a) => a.comedor_id),
+  });
+}
+
 /** Returns counts only: no socia names leave the server. */
 export const getG5Report = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -49,58 +110,5 @@ export const getG5Report = createServerFn({ method: "POST" })
       };
     }
 
-    const month = monthRange(data.monthStart);
-    const [kitchens, members, people, shifts, assignments] = await Promise.all([
-      fetchAllRows<G5Kitchen>((f, t) =>
-        supabaseAdmin.from("comedores").select("id,nombre,dias_atencion").in("id", kitchenIds).order("id").range(f, t),
-      ),
-      fetchAllRows<G5Member>((f, t) =>
-        supabaseAdmin
-          .from("usuarios_comedor")
-          .select("comedor_id,cargo,dni")
-          .in("comedor_id", kitchenIds)
-          .order("id")
-          .range(f, t),
-      ),
-      fetchAllRows<G5Person>((f, t) =>
-        supabaseAdmin
-          .from("beneficiarios")
-          .select("comedor_id,dni,sex")
-          .in("comedor_id", kitchenIds)
-          .not("sex", "is", null)
-          .order("id")
-          .range(f, t),
-      ),
-      fetchAllRows<G5Shift>((f, t) =>
-        supabaseAdmin
-          .from("cronograma")
-          .select("comedor_id,fecha,socias")
-          .in("comedor_id", kitchenIds)
-          .gte("fecha", month.from)
-          .lte("fecha", month.to)
-          .order("id")
-          .range(f, t),
-      ),
-      fetchAllRows<{ comedor_id: string }>((f, t) =>
-        supabaseAdmin
-          .from("supervisor_assignments")
-          .select("comedor_id")
-          .in("comedor_id", kitchenIds)
-          .order("id")
-          .range(f, t),
-      ),
-    ]).catch(friendly);
-
-    const byId = new Map(kitchens.map((k) => [k.id, k]));
-    return {
-      emptyMessage: null,
-      report: buildG5Report({
-        ...base,
-        kitchens: kitchenIds.map((id) => byId.get(id) ?? { id, nombre: "Olla", dias_atencion: [] }),
-        members,
-        people,
-        shifts,
-        supervisedKitchenIds: assignments.map((a) => a.comedor_id),
-      }),
-    };
+    return { emptyMessage: null, report: await loadG5Report(supabaseAdmin, { ...base, kitchenIds }) };
   });

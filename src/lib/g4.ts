@@ -48,9 +48,9 @@ export function formatG4Count(n: number) {
   return n > 0 && n < G4_SMALL_COUNT ? "<5" : formatG1Number(n);
 }
 
-type CategoryKey = "older_adult" | "child" | "social_case" | "disability" | "mothers" | "unclassified";
+export type G4CategoryKey = "older_adult" | "child" | "social_case" | "disability" | "mothers" | "unclassified";
 
-const CATEGORY_ORDER: { key: Exclude<CategoryKey, "unclassified">; label: string }[] = [
+export const G4_CATEGORIES: { key: Exclude<G4CategoryKey, "unclassified">; label: string }[] = [
   { key: "older_adult", label: "Adultos mayores" },
   { key: "child", label: "Niñas y niños" },
   { key: "social_case", label: "Casos sociales" },
@@ -60,7 +60,7 @@ const CATEGORY_ORDER: { key: Exclude<CategoryKey, "unclassified">; label: string
 
 type Part = { label: string; count: number };
 
-export type G4Category = { key: CategoryKey; label: string; people: number; parts: Part[] | null };
+export type G4Category = { key: G4CategoryKey; label: string; people: number; parts: Part[] | null };
 
 type Person = {
   careGroup: string | null;
@@ -76,7 +76,7 @@ function filled(value: string | null | undefined) {
   return Boolean(value && value.trim());
 }
 
-function categoryOf(careGroup: string | null): CategoryKey {
+export function g4CategoryOf(careGroup: string | null): G4CategoryKey {
   if (careGroup === "pregnant" || careGroup === "lactating") return "mothers";
   if (careGroup === "older_adult" || careGroup === "child" || careGroup === "social_case" || careGroup === "disability") {
     return careGroup;
@@ -96,7 +96,7 @@ function ageParts(people: Person[], asOf: string, bands: { label: string; min: n
   return other > 0 ? [...parts, { label: "otras edades", count: other }] : parts;
 }
 
-function partsFor(key: CategoryKey, people: Person[], asOf: string): Part[] | null {
+function partsFor(key: G4CategoryKey, people: Person[], asOf: string): Part[] | null {
   if (key === "older_adult") {
     return ageParts(people, asOf, [
       { label: "60 a 74 años", min: 60, max: 74 },
@@ -176,12 +176,12 @@ export function buildG4Report(input: {
     return day >= period.from && day <= end;
   }).length;
 
-  const byCategory = new Map<CategoryKey, Person[]>();
+  const byCategory = new Map<G4CategoryKey, Person[]>();
   for (const p of all) {
-    const key = categoryOf(p.careGroup);
+    const key = g4CategoryOf(p.careGroup);
     byCategory.set(key, [...(byCategory.get(key) ?? []), p]);
   }
-  const categories: G4Category[] = CATEGORY_ORDER.map(({ key, label }) => {
+  const categories: G4Category[] = G4_CATEGORIES.map(({ key, label }) => {
     const members = byCategory.get(key) ?? [];
     return { key, label, people: members.length, parts: partsFor(key, members, end) };
   }).sort((a, b) => b.people - a.people);

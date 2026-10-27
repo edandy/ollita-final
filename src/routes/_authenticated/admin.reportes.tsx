@@ -8,6 +8,11 @@ import { G3ReportPreview } from "@/components/admin/g3-report";
 import { G4ReportPreview } from "@/components/admin/g4-report";
 import { G5ReportPreview } from "@/components/admin/g5-report";
 import { G6ReportPreview } from "@/components/admin/g6-report";
+import { G7ReportPreview } from "@/components/admin/g7-report";
+import { G8ReportPreview } from "@/components/admin/g8-report";
+import { G9ReportPreview } from "@/components/admin/g9-report";
+import { listReportDonations } from "@/lib/donations.functions";
+import { listReportAllies } from "@/lib/allies.functions";
 import { useAdminLayout } from "@/lib/admin-layout-context";
 import { todayISO } from "@/lib/dates";
 import { shiftWeek, weekRangeMonSat, type G1Report } from "@/lib/g1";
@@ -19,6 +24,9 @@ import {
   g4PdfFilename,
   g5PdfFilename,
   g6PdfFilename,
+  g7PdfFilename,
+  g8PdfFilename,
+  g9PdfFilename,
 } from "@/lib/g1-pdf";
 import { getG1Report, listReportGroups } from "@/lib/g1.functions";
 import type { G2Report } from "@/lib/g2";
@@ -31,6 +39,12 @@ import type { G5Report } from "@/lib/g5";
 import { getG5Report } from "@/lib/g5.functions";
 import type { G6Report } from "@/lib/g6";
 import { getG6Report } from "@/lib/g6.functions";
+import type { G7Report } from "@/lib/g7";
+import { getG7Report } from "@/lib/g7.functions";
+import type { G8Report, G8Version } from "@/lib/g8";
+import { getG8Report } from "@/lib/g8.functions";
+import type { G9Report } from "@/lib/g9";
+import { getG9Report } from "@/lib/g9.functions";
 import type { GroupRow } from "@/lib/groups.functions";
 import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
@@ -50,6 +64,9 @@ const REPORT_KINDS = [
   { value: "g4", label: "G4 · Padrón del grupo" },
   { value: "g5", label: "G5 · Equipo y turnos del grupo" },
   { value: "g6", label: "G6 · Alertas del grupo" },
+  { value: "g7", label: "G7 · Impacto del grupo" },
+  { value: "g8", label: "G8 · Donación al grupo" },
+  { value: "g9", label: "G9 · Adopción y calidad de datos" },
 ] as const;
 
 type ReportKind = (typeof REPORT_KINDS)[number]["value"];
@@ -60,7 +77,10 @@ type LoadedReport =
   | { kind: "g3"; data: G3Report }
   | { kind: "g4"; data: G4Report }
   | { kind: "g5"; data: G5Report }
-  | { kind: "g6"; data: G6Report };
+  | { kind: "g6"; data: G6Report }
+  | { kind: "g7"; data: G7Report }
+  | { kind: "g8"; data: G8Report }
+  | { kind: "g9"; data: G9Report };
 
 type PeriodKind = "week" | "month" | "year";
 
@@ -79,6 +99,11 @@ function ReportesPage() {
   const fnG4 = useServerFn(getG4Report);
   const fnG5 = useServerFn(getG5Report);
   const fnG6 = useServerFn(getG6Report);
+  const fnG7 = useServerFn(getG7Report);
+  const fnAllies = useServerFn(listReportAllies);
+  const fnG8 = useServerFn(getG8Report);
+  const fnDonations = useServerFn(listReportDonations);
+  const fnG9 = useServerFn(getG9Report);
   const [kind, setKind] = useState<ReportKind>("g1");
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [groupId, setGroupId] = useState("");
@@ -86,6 +111,11 @@ function ReportesPage() {
   const [monthStart, setMonthStart] = useState(() => monthRange(todayISO()).from);
   const [yearStart, setYearStart] = useState(() => yearRange(todayISO()).from);
   const [g4Mode, setG4Mode] = useState<G4Mode>("month");
+  const [allies, setAllies] = useState<{ id: string; name: string }[] | null>(null);
+  const [allyId, setAllyId] = useState("");
+  const [donations, setDonations] = useState<{ id: string; code: string; donorName: string; receivedOn: string }[] | null>(null);
+  const [donationId, setDonationId] = useState("");
+  const [g8Version, setG8Version] = useState<G8Version>("donor");
   const [report, setReport] = useState<LoadedReport | null>(null);
   const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,7 +123,7 @@ function ReportesPage() {
   const { pending: exporting, run: runExport } = useSubmitLock();
 
   const week = weekRangeMonSat(weekStart);
-  const periodKind: PeriodKind = kind === "g3" || kind === "g5" ? "month" : kind === "g4" ? g4Mode : "week";
+  const periodKind: PeriodKind = kind === "g3" || kind === "g5" || kind === "g7" ? "month" : kind === "g4" ? g4Mode : "week";
   const periodLabel =
     periodKind === "year" ? yearRange(yearStart).label : periodKind === "month" ? monthRange(monthStart).label : week.label;
   const shiftPeriod = (step: number) => {
@@ -116,6 +146,57 @@ function ReportesPage() {
   }, []);
 
   useEffect(() => {
+    if (kind !== "g7" || !groupId) return;
+    let cancelled = false;
+    setAllies(null);
+    fnAllies({ data: { groupId } })
+      .then((rows) => {
+        if (cancelled) return;
+        setAllies(rows);
+        setAllyId((cur) => (rows.some((a) => a.id === cur) ? cur : rows[0]?.id ?? ""));
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
+        setAllies([]);
+        setAllyId("");
+        void notifyError(friendlySupabaseError(e?.message ?? "No pudimos cargar los aliados."));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, groupId]);
+
+  useEffect(() => {
+    if (kind !== "g8" || !groupId) return;
+    let cancelled = false;
+    setDonations(null);
+    fnDonations({ data: { groupId } })
+      .then((rows) => {
+        if (cancelled) return;
+        setDonations(rows);
+        setDonationId((cur) => (rows.some((d) => d.id === cur) ? cur : rows[0]?.id ?? ""));
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
+        setDonations([]);
+        setDonationId("");
+        void notifyError(friendlySupabaseError(e?.message ?? "No pudimos cargar las donaciones."));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, groupId]);
+
+  useEffect(() => {
+    // G7 and G8 wait for the group's allies or lots so they load once with the right one.
+    if (kind === "g7" && groupId && allies === null) return;
+    if (kind === "g8" && groupId && donations === null) return;
+    if (kind === "g8" && groupId && !donationId) {
+      setReport(null);
+      setEmptyMessage("Este grupo aún no tiene donaciones registradas.");
+      setLoading(false);
+      return;
+    }
     if (!groupId) {
       setReport(null);
       setEmptyMessage(null);
@@ -149,10 +230,25 @@ function ReportesPage() {
                     report: { kind: "g5", data: r.report },
                     emptyMessage: r.emptyMessage,
                   }))
-                : fnG6({ data: { groupId, weekStart } }).then((r) => ({
-                    report: { kind: "g6", data: r.report },
-                    emptyMessage: r.emptyMessage,
-                  }));
+                : kind === "g6"
+                  ? fnG6({ data: { groupId, weekStart } }).then((r) => ({
+                      report: { kind: "g6", data: r.report },
+                      emptyMessage: r.emptyMessage,
+                    }))
+                  : kind === "g7"
+                    ? fnG7({ data: { groupId, allyId, monthStart } }).then((r) => ({
+                        report: { kind: "g7", data: r.report },
+                        emptyMessage: r.emptyMessage,
+                      }))
+                    : kind === "g8"
+                      ? fnG8({ data: { groupId, donationId, version: g8Version } }).then((r) => ({
+                          report: { kind: "g8", data: r.report },
+                          emptyMessage: r.emptyMessage,
+                        }))
+                      : fnG9({ data: { groupId, weekStart } }).then((r) => ({
+                          report: { kind: "g9", data: r.report },
+                          emptyMessage: r.emptyMessage,
+                        }));
     load
       .then((r) => {
         if (cancelled) return;
@@ -170,7 +266,7 @@ function ReportesPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, weekStart, monthStart, yearStart, g4Mode, kind]);
+  }, [groupId, weekStart, monthStart, yearStart, g4Mode, kind, allyId, allies, donationId, donations, g8Version]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -200,6 +296,61 @@ function ReportesPage() {
             ))}
           </select>
         </label>
+        {kind === "g7" && (
+          <label className="flex flex-col gap-1.5 min-w-[220px]">
+            <span className="text-[15px] font-semibold text-bosque">Aliado</span>
+            <select
+              value={allyId}
+              onChange={(e) => setAllyId(e.target.value)}
+              disabled={allies === null}
+              className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
+            >
+              {(allies ?? []).map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+              <option value="">Todo el grupo</option>
+            </select>
+          </label>
+        )}
+        {kind === "g8" && (
+          <>
+            <label className="flex flex-col gap-1.5 min-w-[220px]">
+              <span className="text-[15px] font-semibold text-bosque">Lote</span>
+              <select
+                value={donationId}
+                onChange={(e) => setDonationId(e.target.value)}
+                disabled={donations === null || donations.length === 0}
+                className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
+              >
+                {(donations ?? []).length === 0 && <option value="">Sin lotes</option>}
+                {(donations ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>{d.code} · {d.donorName}</option>
+                ))}
+              </select>
+            </label>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[15px] font-semibold text-bosque">Versión</span>
+              <div className="flex h-14 rounded-xl border border-[#E0E0E0] bg-white p-1" role="group" aria-label="Versión">
+                {([
+                  ["donor", "Donante"],
+                  ["supervision", "Supervisión"],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setG8Version(value)}
+                    aria-pressed={g8Version === value}
+                    className={`px-5 rounded-lg text-[16px] font-semibold ${
+                      g8Version === value ? "bg-[#C5EBF9] text-[#072249]" : "text-[#475569]"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
         {kind === "g4" && (
           <div className="flex flex-col gap-1.5">
             <span className="text-[15px] font-semibold text-bosque">Período</span>
@@ -220,28 +371,30 @@ function ReportesPage() {
             </div>
           </div>
         )}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[15px] font-semibold text-bosque">{PERIOD_COPY[periodKind].label}</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => shiftPeriod(-1)}
-              className="size-14 rounded-xl border border-[#E0E0E0] bg-white grid place-items-center text-[#475569] hover:border-[#0F7BA8]"
-              aria-label={PERIOD_COPY[periodKind].previous}
-            >
-              <ChevronLeft size={22} />
-            </button>
-            <span className="min-w-[168px] text-center text-[17px] font-semibold text-[#072249]">{periodLabel}</span>
-            <button
-              type="button"
-              onClick={() => shiftPeriod(1)}
-              className="size-14 rounded-xl border border-[#E0E0E0] bg-white grid place-items-center text-[#475569] hover:border-[#0F7BA8]"
-              aria-label={PERIOD_COPY[periodKind].next}
-            >
-              <ChevronRight size={22} />
-            </button>
+        {kind !== "g8" && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[15px] font-semibold text-bosque">{PERIOD_COPY[periodKind].label}</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => shiftPeriod(-1)}
+                className="size-14 rounded-xl border border-[#E0E0E0] bg-white grid place-items-center text-[#475569] hover:border-[#0F7BA8]"
+                aria-label={PERIOD_COPY[periodKind].previous}
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <span className="min-w-[168px] text-center text-[17px] font-semibold text-[#072249]">{periodLabel}</span>
+              <button
+                type="button"
+                onClick={() => shiftPeriod(1)}
+                className="size-14 rounded-xl border border-[#E0E0E0] bg-white grid place-items-center text-[#475569] hover:border-[#0F7BA8]"
+                aria-label={PERIOD_COPY[periodKind].next}
+              >
+                <ChevronRight size={22} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -264,7 +417,13 @@ function ReportesPage() {
                           ? g4PdfFilename(report.data.groupName, report.data.period.mode, report.data.period.from)
                           : report.kind === "g5"
                             ? g5PdfFilename(report.data.groupName, report.data.month.from)
-                            : g6PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to);
+                            : report.kind === "g6"
+                              ? g6PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
+                              : report.kind === "g7"
+                                ? g7PdfFilename(report.data.groupName, report.data.allyName, report.data.month.from)
+                                : report.kind === "g8"
+                                  ? g8PdfFilename(report.data.donation.code, report.data.version)
+                                  : g9PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to);
                 await downloadG1Pdf(sheet, filename);
               } catch (err) {
                 console.error(err);
@@ -307,8 +466,14 @@ function ReportesPage() {
             <G4ReportPreview report={report.data} sheetRef={sheetRef} />
           ) : report.kind === "g5" ? (
             <G5ReportPreview report={report.data} sheetRef={sheetRef} />
-          ) : (
+          ) : report.kind === "g6" ? (
             <G6ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : report.kind === "g7" ? (
+            <G7ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : report.kind === "g8" ? (
+            <G8ReportPreview report={report.data} sheetRef={sheetRef} />
+          ) : (
+            <G9ReportPreview report={report.data} sheetRef={sheetRef} />
           )}
         </div>
       )}

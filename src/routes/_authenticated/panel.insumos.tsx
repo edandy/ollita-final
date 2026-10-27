@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/panel/insumos")({
 
 type Insumo = {
   id: string;
+  comedor_id: string;
   nombre: string;
   unidad: "kg" | "L" | "unid";
   stock_actual: number;
@@ -368,7 +369,17 @@ function FormMovimiento({ insumo, tipo, cantidad: cantIni, cerrar }: { insumo: I
   const [nota, setNota] = useState("");
   const [precio, setPrecio] = useState(insumo.precio_referencial != null ? String(insumo.precio_referencial) : "");
   const [origenMov, setOrigenMov] = useState<"compra" | "donacion">("compra");
+  const [donationId, setDonationId] = useState("");
+  const [lotes, setLotes] = useState<{ id: string; code: string; donor_name: string; received_on: string }[]>([]);
   const { pending, run } = useSubmitLock();
+
+  // Donation lots of this kitchen's groups (G8): the kitchen links its share to one.
+  useEffect(() => {
+    if (tipo !== "ingreso") return;
+    supabase
+      .rpc("donations_for_kitchen", { p_comedor_id: insumo.comedor_id })
+      .then(({ data }) => setLotes(data ?? []));
+  }, [tipo, insumo.comedor_id]);
   const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     const c = Number(cantidad);
@@ -384,6 +395,7 @@ function FormMovimiento({ insumo, tipo, cantidad: cantIni, cerrar }: { insumo: I
         cantidad: c,
         nota: notaFinal,
         precio_unitario: tipo === "ingreso" && origenMov === "compra" && precio ? Number(precio) : null,
+        donation_id: tipo === "ingreso" && origenMov === "donacion" && donationId ? donationId : null,
       });
       const { error: e2 } = await supabase.from("insumos").update({ stock_actual: Math.max(0, nuevoStock) }).eq("id", insumo.id);
       if (e1 || e2) { void notifyError(friendlySupabaseError((e1 ?? e2)!.message)); return; }
@@ -437,6 +449,18 @@ function FormMovimiento({ insumo, tipo, cantidad: cantIni, cerrar }: { insumo: I
                 </button>
               ))}
             </div>
+          </PanelField>
+        )}
+        {esEntrada && origenMov === "donacion" && lotes.length > 0 && (
+          <PanelField label="Lote de donación · opcional" note="Para el reporte al donante">
+            <select value={donationId} onChange={(e) => setDonationId(e.target.value)} className={panelInputClass()}>
+              <option value="">Sin lote</option>
+              {lotes.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.code} · {l.donor_name} · {l.received_on.slice(8)}/{l.received_on.slice(5, 7)}
+                </option>
+              ))}
+            </select>
           </PanelField>
         )}
         {esEntrada && origenMov === "compra" && (

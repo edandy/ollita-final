@@ -139,6 +139,19 @@ export function g6PdfFilename(groupName: string, weekFrom: string, weekTo: strin
   return `G6-Alertas-${slugify(groupName)}-${weekFrom}_${weekTo}.pdf`;
 }
 
+export function g7PdfFilename(groupName: string, allyName: string | null, monthFrom: string) {
+  const ally = allyName ? `-${slugify(allyName)}` : "";
+  return `G7-Impacto-${slugify(groupName)}${ally}-${monthFrom.slice(0, 7)}.pdf`;
+}
+
+export function g8PdfFilename(code: string, version: "donor" | "supervision") {
+  return `G8-Donacion-${slugify(code)}${version === "supervision" ? "-supervision" : ""}.pdf`;
+}
+
+export function g9PdfFilename(groupName: string, weekFrom: string, weekTo: string) {
+  return `G9-Adopcion-${slugify(groupName)}-${weekFrom}_${weekTo}.pdf`;
+}
+
 export function g4PdfFilename(groupName: string, mode: "month" | "year", start: string) {
   return `G4-Padron-${slugify(groupName)}-${start.slice(0, mode === "year" ? 4 : 7)}.pdf`;
 }

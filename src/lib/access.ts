@@ -1,6 +1,6 @@
 export type AccessLevel = "view" | "full";
 export type PostLoginPath = "/admin" | "/panel" | "/";
-export type AdminSection = "ollas" | "nueva" | "gestores" | "usuarios" | "actividad" | "grupos" | "reportes";
+export type AdminSection = "ollas" | "nueva" | "gestores" | "usuarios" | "actividad" | "grupos" | "aliados" | "donantes" | "donaciones" | "reportes";
 
 export const SUPERVISOR_KITCHEN_STORAGE_KEY = "supervisor_comedor_id";
 export const ADMIN_KITCHEN_STORAGE_KEY = "admin_comedor_id";
@@ -12,6 +12,9 @@ export const ADMIN_SECTION_PATHS = {
   usuarios: "/admin/usuarios",
   actividad: "/admin/actividad",
   grupos: "/admin/grupos",
+  aliados: "/admin/aliados",
+  donantes: "/admin/donantes",
+  donaciones: "/admin/donaciones",
   reportes: "/admin/reportes",
 } as const satisfies Record<AdminSection, string>;
 
@@ -22,6 +25,9 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   "usuarios",
   "actividad",
   "grupos",
+  "aliados",
+  "donantes",
+  "donaciones",
   "reportes",
 ];
 

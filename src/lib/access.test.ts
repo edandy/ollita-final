@@ -114,6 +114,9 @@ describe("admin module urls", () => {
     expect(adminSectionPath("usuarios")).toBe("/admin/usuarios");
     expect(adminSectionPath("actividad")).toBe("/admin/actividad");
     expect(adminSectionPath("grupos")).toBe("/admin/grupos");
+    expect(adminSectionPath("aliados")).toBe("/admin/aliados");
+    expect(adminSectionPath("donantes")).toBe("/admin/donantes");
+    expect(adminSectionPath("donaciones")).toBe("/admin/donaciones");
     expect(adminSectionPath("reportes")).toBe("/admin/reportes");
   });
 
@@ -130,6 +133,8 @@ describe("admin module urls", () => {
     expect(adminSectionFromPath("/admin/usuarios")).toBe("usuarios");
     expect(adminSectionFromPath("/admin/actividad")).toBe("actividad");
     expect(adminSectionFromPath("/admin/grupos")).toBe("grupos");
+    expect(adminSectionFromPath("/admin/aliados")).toBe("aliados");
+    expect(adminSectionFromPath("/admin/donaciones")).toBe("donaciones");
     expect(adminSectionFromPath("/admin/reportes")).toBe("reportes");
     expect(adminSectionFromPath("/panel")).toBe(null);
   });
@@ -144,6 +149,9 @@ describe("admin home for supervisors", () => {
     expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "usuarios" })).toBe(false);
     expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "actividad" })).toBe(false);
     expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "grupos" })).toBe(false);
+    expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "aliados" })).toBe(false);
+    expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "donantes" })).toBe(false);
+    expect(canOpenAdminSection({ isAdmin: false, isSupervisor: true, section: "donaciones" })).toBe(false);
   });
 
   it("lets admins open every section", () => {

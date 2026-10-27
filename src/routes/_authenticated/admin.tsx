@@ -21,7 +21,7 @@ import { notifyError } from "@/lib/notify";
 import { friendlySupabaseError } from "@/lib/supabase-errors";
 import logoBlanco from "@/assets/logo-ollita-blanco.svg";
 import {
-  Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, Layers, LogOut, FileBarChart,
+  Plus, Menu, X, LayoutGrid, Users, UserCog, CalendarCheck, Layers, LogOut, FileBarChart, Handshake, Building2, Gift,
 } from "lucide-react";
 
 const NAV: { key: AdminSection; label: string; icon: typeof LayoutGrid }[] = [
@@ -30,6 +30,9 @@ const NAV: { key: AdminSection; label: string; icon: typeof LayoutGrid }[] = [
   { key: "gestores", label: "Gestores", icon: Users },
   { key: "usuarios", label: "Usuarios", icon: UserCog },
   { key: "grupos", label: "Grupos", icon: Layers },
+  { key: "aliados", label: "Aliados", icon: Handshake },
+  { key: "donantes", label: "Donantes", icon: Building2 },
+  { key: "donaciones", label: "Donaciones", icon: Gift },
   { key: "reportes", label: "Reportes", icon: FileBarChart },
   { key: "actividad", label: "Uso diario", icon: CalendarCheck },
 ];
@@ -54,6 +57,18 @@ const TITULOS: Record<AdminSection, { titulo: string; sub: (t: ReturnType<typeof
   grupos: {
     titulo: "Grupos",
     sub: (_t, n = 0) => n === 1 ? "1 grupo de ollas" : `${n} grupos de ollas`,
+  },
+  aliados: {
+    titulo: "Aliados",
+    sub: (_t, n = 0) => n === 1 ? "1 aliado" : `${n} aliados`,
+  },
+  donantes: {
+    titulo: "Donantes",
+    sub: (_t, n = 0) => n === 1 ? "1 donante" : `${n} donantes`,
+  },
+  donaciones: {
+    titulo: "Donaciones",
+    sub: (_t, n = 0) => n === 1 ? "1 lote de donación" : `${n} lotes de donación`,
   },
   reportes: {
     titulo: "Reportes",
@@ -142,6 +157,9 @@ function AdminLayout() {
     : isAdmin && section === "gestores" ? { to: "/admin/gestores" as const, label: "Nuevo gestor", search: { nuevo: true } }
     : isAdmin && section === "usuarios" ? { to: "/admin/usuarios" as const, label: "Nuevo usuario", search: { nuevo: true } }
     : isAdmin && section === "grupos" ? { to: "/admin/grupos" as const, label: "Nuevo grupo", search: { nuevo: true } }
+    : isAdmin && section === "aliados" ? { to: "/admin/aliados" as const, label: "Nuevo aliado", search: { nuevo: true } }
+    : isAdmin && section === "donantes" ? { to: "/admin/donantes" as const, label: "Nuevo donante", search: { nuevo: true } }
+    : isAdmin && section === "donaciones" ? { to: "/admin/donaciones" as const, label: "Nuevo lote", search: { nuevo: true } }
     : null;
 
   const cerrarSesion = async () => {

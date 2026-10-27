@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      allies: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      ally_kitchens: {
+        Row: {
+          ally_id: string
+          comedor_id: string
+          created_at: string
+        }
+        Insert: {
+          ally_id: string
+          comedor_id: string
+          created_at?: string
+        }
+        Update: {
+          ally_id?: string
+          comedor_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ally_kitchens_ally_id_fkey"
+            columns: ["ally_id"]
+            isOneToOne: false
+            referencedRelation: "allies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ally_kitchens_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beneficiarios: {
         Row: {
           activo: boolean
@@ -507,6 +558,66 @@ export type Database = {
           },
         ]
       }
+      donations: {
+        Row: {
+          code: string
+          created_at: string
+          donor_id: string
+          group_id: string
+          id: string
+          received_on: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          donor_id: string
+          group_id: string
+          id?: string
+          received_on: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          donor_id?: string
+          group_id?: string
+          id?: string
+          received_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "donations_donor_id_fkey"
+            columns: ["donor_id"]
+            isOneToOne: false
+            referencedRelation: "donors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "donations_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      donors: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       favoritos: {
         Row: {
           comedor_id: string
@@ -684,6 +795,35 @@ export type Database = {
           },
         ]
       }
+      kitchen_activity: {
+        Row: {
+          comedor_id: string
+          created_at: string
+          day: string
+          user_id: string
+        }
+        Insert: {
+          comedor_id: string
+          created_at?: string
+          day: string
+          user_id: string
+        }
+        Update: {
+          comedor_id?: string
+          created_at?: string
+          day?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_activity_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_opciones: {
         Row: {
           created_at: string
@@ -820,6 +960,7 @@ export type Database = {
         Row: {
           cantidad: number
           created_at: string
+          donation_id: string | null
           fecha: string
           id: string
           insumo_id: string
@@ -830,6 +971,7 @@ export type Database = {
         Insert: {
           cantidad: number
           created_at?: string
+          donation_id?: string | null
           fecha?: string
           id?: string
           insumo_id: string
@@ -840,6 +982,7 @@ export type Database = {
         Update: {
           cantidad?: number
           created_at?: string
+          donation_id?: string | null
           fecha?: string
           id?: string
           insumo_id?: string
@@ -1135,9 +1278,22 @@ export type Database = {
         Returns: boolean
       }
       is_full_supervisor_of: { Args: { _comedor_id: string }; Returns: boolean }
+      donations_for_kitchen: {
+        Args: { p_comedor_id: string }
+        Returns: {
+          code: string
+          donor_name: string
+          id: string
+          received_on: string
+        }[]
+      }
       dni_in_active_padron: {
         Args: { _comedor_id: string; _dni: string }
         Returns: boolean
+      }
+      log_kitchen_activity: {
+        Args: { p_comedor_id: string }
+        Returns: undefined
       }
       verificar_padron: {
         Args: { _comedor_id: string; _dni: string }
