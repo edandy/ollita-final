@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Gift, Pencil, Trash2, X } from "lucide-react";
+import { AdminSelect } from "@/components/admin/admin-select";
 import { useAdminLayout } from "@/lib/admin-layout-context";
 import { todayISO } from "@/lib/dates";
 import { deleteDonation, listDonations, listDonors, saveDonation } from "@/lib/donations.functions";
@@ -187,24 +188,20 @@ function DonacionesPage() {
               <span className="text-[15px] font-semibold text-[#072249]">Código del lote</span>
               <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="D-2026-044" className={inputClass} />
             </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[15px] font-semibold text-[#072249]">Donante</span>
-              <select value={donorId} onChange={(e) => setDonorId(e.target.value)} className={inputClass}>
-                <option value="">{donors.length ? "Elige el donante" : "Primero crea un donante en Donantes"}</option>
-                {donors.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[15px] font-semibold text-[#072249]">Grupo que la recibe</span>
-              <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputClass}>
-                <option value="">Elige el grupo</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
-            </label>
+            <AdminSelect
+              label="Donante"
+              value={donorId}
+              onValueChange={setDonorId}
+              options={donors.map((d) => ({ value: d.id, label: d.name }))}
+              placeholder={donors.length ? "Elige el donante" : "Primero crea un donante en Donantes"}
+            />
+            <AdminSelect
+              label="Grupo que la recibe"
+              value={groupId}
+              onValueChange={setGroupId}
+              options={groups.map((g) => ({ value: g.id, label: g.name }))}
+              placeholder="Elige el grupo"
+            />
             <label className="flex flex-col gap-1.5">
               <span className="text-[15px] font-semibold text-[#072249]">Recibido por el grupo</span>
               <input type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} className={inputClass} />

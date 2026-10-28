@@ -30,6 +30,12 @@ import {
   type AdminConfirm,
   type KitchenRow,
 } from "@/lib/admin-layout-context";
+import { AdminSelect } from "@/components/admin/admin-select";
+
+const ACCESS_OPTIONS = [
+  { value: "view", label: "Solo ver" },
+  { value: "full", label: "Acceso completo" },
+];
 
 const CARGOS = ["presidenta", "vicepresidenta", "tesorera", "almacenera", "cocinera", "secretaria", "fiscal", "vocal", "socia"] as const;
 
@@ -241,12 +247,12 @@ function Campo({ label, className, ...rest }: any) {
 
 function SelectCargo({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[15px] font-semibold text-bosque">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]">
-        {CARGOS.map((c) => <option key={c} value={c}>{c[0]!.toUpperCase() + c.slice(1)}</option>)}
-      </select>
-    </label>
+    <AdminSelect
+      label={label}
+      value={value}
+      onValueChange={onChange}
+      options={CARGOS.map((c) => ({ value: c, label: c[0]!.toUpperCase() + c.slice(1) }))}
+    />
   );
 }
 
@@ -818,17 +824,13 @@ export function PanelNueva({ comedores, recargar, verOllas }: { comedores: Fila[
             <span className="text-xl font-bold">Enlace para una olla ya creada</span>
             <span className="text-base text-[#475569]">Para sumar a otra socia a un comedor que ya existe.</span>
           </div>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[15px] font-semibold">Olla o comedor</span>
-            <select
-              value={existente}
-              onChange={(e) => { setExistente(e.target.value); setEnlace2(null); }}
-              className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
-            >
-              <option value="">Elige…</option>
-              {comedores.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </label>
+          <AdminSelect
+            label="Olla o comedor"
+            value={existente}
+            onValueChange={(v) => { setExistente(v); setEnlace2(null); }}
+            options={comedores.map((c) => ({ value: c.id, label: c.nombre }))}
+            placeholder="Elige…"
+          />
           <SelectCargo value={cargo2} onChange={(c) => { setCargo2(c); setEnlace2(null); }} label="Cargo que tendrá" />
           <button
             type="button"
@@ -986,17 +988,12 @@ export function PanelPlatformUsers({
           <Campo label="Celular (opcional)" value={v.phone} onChange={(e: any) => setV({ ...v, phone: e.target.value.replace(/\D/g, "").slice(0, 9) })} />
           {needsSupervisorFields(v.role) && (
             <>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[15px] font-semibold">Acceso</span>
-                <select
-                  value={v.accessLevel}
-                  onChange={(e) => setV({ ...v, accessLevel: e.target.value as AccessLevel })}
-                  className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
-                >
-                  <option value="view">Solo ver</option>
-                  <option value="full">Acceso completo</option>
-                </select>
-              </label>
+              <AdminSelect
+                label="Acceso"
+                value={v.accessLevel}
+                onValueChange={(a) => setV({ ...v, accessLevel: a as AccessLevel })}
+                options={ACCESS_OPTIONS}
+              />
               <KitchenMultiSelect
                 kitchens={comedores}
                 selectedIds={v.comedorIds}
@@ -1144,17 +1141,12 @@ export function PanelPlatformUsers({
             <Campo label="Nombre" value={editando.name} onChange={(e: any) => setEditando({ ...editando, name: e.target.value })} required />
             {needsSupervisorFields(editando.role) && (
               <>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[15px] font-semibold">Acceso</span>
-                  <select
-                    value={editando.accessLevel ?? "view"}
-                    onChange={(e) => setEditando({ ...editando, accessLevel: e.target.value as AccessLevel })}
-                    className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
-                  >
-                    <option value="view">Solo ver</option>
-                    <option value="full">Acceso completo</option>
-                  </select>
-                </label>
+                <AdminSelect
+                  label="Acceso"
+                  value={editando.accessLevel ?? "view"}
+                  onValueChange={(a) => setEditando({ ...editando, accessLevel: a as AccessLevel })}
+                  options={ACCESS_OPTIONS}
+                />
                 <KitchenMultiSelect
                   kitchens={comedores}
                   selectedIds={editando.comedorIds}
@@ -1249,18 +1241,14 @@ export function PanelUsuarios({
             });
           }}
         >
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[15px] font-semibold">Olla o comedor</span>
-            <select
-              value={v.comedor_id}
-              onChange={(e) => setV({ ...v, comedor_id: e.target.value })}
-              className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
-              required
-            >
-              <option value="">Elige…</option>
-              {comedores.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </label>
+          <AdminSelect
+            label="Olla o comedor"
+            value={v.comedor_id}
+            onValueChange={(id) => setV({ ...v, comedor_id: id })}
+            options={comedores.map((c) => ({ value: c.id, label: c.nombre }))}
+            placeholder="Elige…"
+            required
+          />
           <Campo label="Nombre" value={v.nombre} onChange={(e: any) => setV({ ...v, nombre: e.target.value })} required />
           <SelectCargo value={v.cargo} onChange={(c) => setV({ ...v, cargo: c })} label="Cargo" />
           <Campo label="DNI (será su usuario)" value={v.dni} onChange={(e: any) => setV({ ...v, dni: e.target.value.replace(/\D/g, "").slice(0, 8) })} required />

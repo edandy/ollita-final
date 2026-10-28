@@ -77,7 +77,7 @@ const TITULOS: Record<AdminSection, { titulo: string; sub: (t: ReturnType<typeof
   },
   reportes: {
     titulo: "Reportes",
-    sub: () => "G1 · Raciones del grupo · lunes a sábado",
+    sub: () => "Consolidados de grupo para revisar y exportar en PDF",
   },
   actividad: {
     titulo: "Uso diario",

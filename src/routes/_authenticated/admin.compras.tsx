@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AdminSelect } from "@/components/admin/admin-select";
 import { todayISO } from "@/lib/dates";
 import { formatG1Number } from "@/lib/g1";
 import { monthRange, shiftMonth } from "@/lib/g3";
@@ -18,9 +19,6 @@ export const Route = createFileRoute("/_authenticated/admin/compras")({
 
 type Kitchen = { id: string; nombre: string; hasData: boolean; selected: boolean };
 type Item = { key: string; label: string; unit: string; quantity: number; currentPrice: number | null; negotiated: number | null };
-
-const selectClass =
-  "h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]";
 
 function ComprasPage() {
   const fnGroups = useServerFn(listGroups);
@@ -95,15 +93,14 @@ function ComprasPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
-        <label className="flex flex-col gap-1.5 min-w-[220px] flex-1">
-          <span className="text-[15px] font-semibold text-bosque">Grupo</span>
-          <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={selectClass}>
-            {groups.length === 0 && <option value="">Sin grupos</option>}
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </select>
-        </label>
+        <AdminSelect
+          label="Grupo"
+          value={groupId}
+          onValueChange={setGroupId}
+          options={groups.map((g) => ({ value: g.id, label: g.name }))}
+          placeholder="Sin grupos"
+          className="min-w-[220px] flex-1"
+        />
         <div className="flex flex-col gap-1.5">
           <span className="text-[15px] font-semibold text-bosque">Compra para</span>
           <div className="flex items-center gap-2">

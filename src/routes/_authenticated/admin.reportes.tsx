@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { AdminSelect } from "@/components/admin/admin-select";
 import { G1ReportPreview } from "@/components/admin/g1-report";
 import { G2ReportPreview } from "@/components/admin/g2-report";
 import { G3ReportPreview } from "@/components/admin/g3-report";
@@ -65,21 +66,21 @@ export const Route = createFileRoute("/_authenticated/admin/reportes")({
   component: ReportesPage,
 });
 
-const REPORT_KINDS = [
-  { value: "g1", label: "G1 · Raciones del grupo" },
-  { value: "g2", label: "G2 · Almacén del grupo" },
-  { value: "g3", label: "G3 · Rendimiento de insumos del grupo" },
-  { value: "g4", label: "G4 · Padrón del grupo" },
-  { value: "g5", label: "G5 · Equipo y turnos del grupo" },
-  { value: "g6", label: "G6 · Alertas del grupo" },
-  { value: "g7", label: "G7 · Impacto del grupo" },
-  { value: "g8", label: "G8 · Donación al grupo" },
-  { value: "g9", label: "G9 · Adopción y calidad de datos" },
-  { value: "g10", label: "G10 · Excedentes y faltantes" },
-  { value: "g11", label: "G11 · Compras conjuntas" },
+const REPORT_OPTIONS = [
+  { value: "g1", badge: "G1", label: "Raciones del grupo", hint: "Semanal", group: "Semanales" },
+  { value: "g2", badge: "G2", label: "Almacén del grupo", hint: "Semanal", group: "Semanales" },
+  { value: "g6", badge: "G6", label: "Alertas del grupo", hint: "Semanal", group: "Semanales" },
+  { value: "g9", badge: "G9", label: "Adopción y calidad de datos", hint: "Semanal", group: "Semanales" },
+  { value: "g10", badge: "G10", label: "Excedentes y faltantes", hint: "Semanal", group: "Semanales" },
+  { value: "g3", badge: "G3", label: "Rendimiento de insumos", hint: "Mensual", group: "Mensuales" },
+  { value: "g5", badge: "G5", label: "Equipo y turnos", hint: "Mensual", group: "Mensuales" },
+  { value: "g7", badge: "G7", label: "Impacto del grupo", hint: "Mensual · para aliados", group: "Mensuales" },
+  { value: "g11", badge: "G11", label: "Compras conjuntas", hint: "Mensual · para el mes que viene", group: "Mensuales" },
+  { value: "g4", badge: "G4", label: "Padrón del grupo", hint: "Por mes o por año", group: "Mes o año" },
+  { value: "g8", badge: "G8", label: "Donación al grupo", hint: "Por lote de donación", group: "Por donación" },
 ] as const;
 
-type ReportKind = (typeof REPORT_KINDS)[number]["value"];
+type ReportKind = (typeof REPORT_OPTIONS)[number]["value"];
 
 type LoadedReport =
   | { kind: "g1"; data: G1Report }
@@ -292,183 +293,151 @@ function ReportesPage() {
     };
   }, [groupId, weekStart, monthStart, yearStart, g4Mode, kind, allyId, allies, donationId, donations, g8Version]);
 
+  const exportPdf = () => {
+    const sheet =
+      sheetRef.current ?? document.querySelector<HTMLElement>(".g1-print-root .g1-sheet");
+    if (!report || !sheet) {
+      void notifyError("No pudimos generar el PDF. Recarga la página e inténtalo de nuevo.");
+      return;
+    }
+    void runExport(async () => {
+      try {
+        const filename =
+          report.kind === "g1"
+            ? g1PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
+            : report.kind === "g2"
+              ? g2PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
+              : report.kind === "g3"
+                ? g3PdfFilename(report.data.groupName, report.data.month.from)
+                : report.kind === "g4"
+                  ? g4PdfFilename(report.data.groupName, report.data.period.mode, report.data.period.from)
+                  : report.kind === "g5"
+                    ? g5PdfFilename(report.data.groupName, report.data.month.from)
+                    : report.kind === "g6"
+                      ? g6PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
+                      : report.kind === "g7"
+                        ? g7PdfFilename(report.data.groupName, report.data.allyName, report.data.month.from)
+                        : report.kind === "g8"
+                          ? g8PdfFilename(report.data.donation.code, report.data.version)
+                          : report.kind === "g9"
+                            ? g9PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
+                            : report.kind === "g10"
+                              ? g10PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
+                              : g11PdfFilename(report.data.groupName, report.data.month.from);
+        await downloadG1Pdf(sheet, filename);
+      } catch (err) {
+        console.error(err);
+        void notifyError("No pudimos generar el PDF. Inténtalo de nuevo.");
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="g1-no-print flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
-        <label className="flex flex-col gap-1.5 min-w-[220px]">
-          <span className="text-[15px] font-semibold text-bosque">Reporte</span>
-          <select
-            value={kind}
-            onChange={(e) => {
-              const next = e.target.value as ReportKind;
-              setKind(next);
-              // A joint purchase is for a month to come: skip the month already running.
-              if (next === "g11" && monthStart <= todayISO()) setMonthStart(shiftMonth(todayISO(), 1));
-            }}
-            className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
-          >
-            {REPORT_KINDS.map((k) => (
-              <option key={k.value} value={k.value}>{k.label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1.5 min-w-[220px] flex-1">
-          <span className="text-[15px] font-semibold text-bosque">Grupo</span>
-          <select
-            value={groupId}
-            onChange={(e) => setGroupId(e.target.value)}
-            className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
-          >
-            {groups.length === 0 && <option value="">Sin grupos</option>}
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </select>
-        </label>
-        {kind === "g7" && (
-          <label className="flex flex-col gap-1.5 min-w-[220px]">
-            <span className="text-[15px] font-semibold text-bosque">Aliado</span>
-            <select
+      <div className="g1-no-print bg-white border border-[#E0E0E0] rounded-[20px] p-4 sm:p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] lg:items-end">
+        <AdminSelect
+          label="Reporte"
+          value={kind}
+          onValueChange={(v) => {
+            const next = v as ReportKind;
+            setKind(next);
+            // A joint purchase is for a month to come: skip the month already running.
+            if (next === "g11" && monthStart <= todayISO()) setMonthStart(shiftMonth(todayISO(), 1));
+          }}
+          options={[...REPORT_OPTIONS]}
+        />
+        <AdminSelect
+          label="Grupo"
+          value={groupId}
+          onValueChange={setGroupId}
+          options={groups.map((g) => ({ value: g.id, label: g.name }))}
+          placeholder="Sin grupos"
+          size="lg"
+        />
+        <div className="flex flex-wrap items-end gap-3 sm:col-span-2 lg:col-span-1">
+          {kind === "g7" && (
+            <AdminSelect
+              label="Aliado"
               value={allyId}
-              onChange={(e) => setAllyId(e.target.value)}
+              onValueChange={setAllyId}
               disabled={allies === null}
-              className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
-            >
-              {(allies ?? []).map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-              <option value="">Todo el grupo</option>
-            </select>
-          </label>
-        )}
-        {kind === "g8" && (
-          <>
-            <label className="flex flex-col gap-1.5 min-w-[220px]">
-              <span className="text-[15px] font-semibold text-bosque">Lote</span>
-              <select
+              size="lg"
+              className="min-w-[220px] flex-1"
+              options={[
+                ...(allies ?? []).map((a) => ({ value: a.id, label: a.name })),
+                { value: "", label: "Todo el grupo" },
+              ]}
+            />
+          )}
+          {kind === "g8" && (
+            <>
+              <AdminSelect
+                label="Lote"
                 value={donationId}
-                onChange={(e) => setDonationId(e.target.value)}
-                disabled={donations === null || donations.length === 0}
-                className="h-14 border border-[#E0E0E0] rounded-xl px-4 text-[17px] bg-white outline-none focus:border-[#0F7BA8]"
-              >
-                {(donations ?? []).length === 0 && <option value="">Sin lotes</option>}
-                {(donations ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>{d.code} · {d.donorName}</option>
-                ))}
-              </select>
-            </label>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[15px] font-semibold text-bosque">Versión</span>
-              <div className="flex h-14 rounded-xl border border-[#E0E0E0] bg-white p-1" role="group" aria-label="Versión">
-                {([
+                onValueChange={setDonationId}
+                disabled={donations === null}
+                size="lg"
+                className="min-w-[220px] flex-1"
+                placeholder="Sin lotes"
+                options={(donations ?? []).map((d) => ({ value: d.id, label: `${d.code} · ${d.donorName}` }))}
+              />
+              <Segmented
+                label="Versión"
+                value={g8Version}
+                onChange={setG8Version}
+                options={[
                   ["donor", "Donante"],
                   ["supervision", "Supervisión"],
-                ] as const).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setG8Version(value)}
-                    aria-pressed={g8Version === value}
-                    className={`px-5 rounded-lg text-[16px] font-semibold ${
-                      g8Version === value ? "bg-[#C5EBF9] text-[#072249]" : "text-[#475569]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+                ]}
+              />
+            </>
+          )}
+          {kind === "g4" && (
+            <Segmented
+              label="Período"
+              value={g4Mode}
+              onChange={setG4Mode}
+              options={[
+                ["month", "Mes"],
+                ["year", "Año"],
+              ]}
+            />
+          )}
+          {kind !== "g8" && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[15px] font-semibold text-bosque">{PERIOD_COPY[periodKind].label}</span>
+              <div className="flex h-16 items-center gap-1 rounded-xl border border-[#E0E0E0] bg-white px-2">
+                <button
+                  type="button"
+                  onClick={() => shiftPeriod(-1)}
+                  className="grid size-10 place-items-center rounded-lg text-[#475569] hover:bg-[#C5EBF9] hover:text-[#072249] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F7BA8]/40"
+                  aria-label={PERIOD_COPY[periodKind].previous}
+                >
+                  <ChevronLeft size={22} />
+                </button>
+                <span className="min-w-[168px] text-center text-[17px] font-semibold text-[#072249] tabular-nums">
+                  {periodLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => shiftPeriod(1)}
+                  className="grid size-10 place-items-center rounded-lg text-[#475569] hover:bg-[#C5EBF9] hover:text-[#072249] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F7BA8]/40"
+                  aria-label={PERIOD_COPY[periodKind].next}
+                >
+                  <ChevronRight size={22} />
+                </button>
               </div>
             </div>
-          </>
-        )}
-        {kind === "g4" && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[15px] font-semibold text-bosque">Período</span>
-            <div className="flex h-14 rounded-xl border border-[#E0E0E0] bg-white p-1" role="group" aria-label="Período">
-              {(["month", "year"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setG4Mode(mode)}
-                  aria-pressed={g4Mode === mode}
-                  className={`px-5 rounded-lg text-[16px] font-semibold ${
-                    g4Mode === mode ? "bg-[#C5EBF9] text-[#072249]" : "text-[#475569]"
-                  }`}
-                >
-                  {mode === "month" ? "Mes" : "Año"}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {kind !== "g8" && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[15px] font-semibold text-bosque">{PERIOD_COPY[periodKind].label}</span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => shiftPeriod(-1)}
-                className="size-14 rounded-xl border border-[#E0E0E0] bg-white grid place-items-center text-[#475569] hover:border-[#0F7BA8]"
-                aria-label={PERIOD_COPY[periodKind].previous}
-              >
-                <ChevronLeft size={22} />
-              </button>
-              <span className="min-w-[168px] text-center text-[17px] font-semibold text-[#072249]">{periodLabel}</span>
-              <button
-                type="button"
-                onClick={() => shiftPeriod(1)}
-                className="size-14 rounded-xl border border-[#E0E0E0] bg-white grid place-items-center text-[#475569] hover:border-[#0F7BA8]"
-                aria-label={PERIOD_COPY[periodKind].next}
-              >
-                <ChevronRight size={22} />
-              </button>
-            </div>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            const sheet =
-              sheetRef.current ?? document.querySelector<HTMLElement>(".g1-print-root .g1-sheet");
-            if (!report || !sheet) {
-              void notifyError("No pudimos generar el PDF. Recarga la página e inténtalo de nuevo.");
-              return;
-            }
-            void runExport(async () => {
-              try {
-                const filename =
-                  report.kind === "g1"
-                    ? g1PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
-                    : report.kind === "g2"
-                      ? g2PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
-                      : report.kind === "g3"
-                        ? g3PdfFilename(report.data.groupName, report.data.month.from)
-                        : report.kind === "g4"
-                          ? g4PdfFilename(report.data.groupName, report.data.period.mode, report.data.period.from)
-                          : report.kind === "g5"
-                            ? g5PdfFilename(report.data.groupName, report.data.month.from)
-                            : report.kind === "g6"
-                              ? g6PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
-                              : report.kind === "g7"
-                                ? g7PdfFilename(report.data.groupName, report.data.allyName, report.data.month.from)
-                                : report.kind === "g8"
-                                  ? g8PdfFilename(report.data.donation.code, report.data.version)
-                                  : report.kind === "g9"
-                                    ? g9PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
-                                    : report.kind === "g10"
-                                      ? g10PdfFilename(report.data.groupName, report.data.week.from, report.data.week.to)
-                                      : g11PdfFilename(report.data.groupName, report.data.month.from);
-                await downloadG1Pdf(sheet, filename);
-              } catch (err) {
-                console.error(err);
-                void notifyError("No pudimos generar el PDF. Inténtalo de nuevo.");
-              }
-            });
-          }}
-          disabled={!report || exporting}
-          className="min-h-14 px-6 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold inline-flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-60 sm:ml-auto"
-        >
-          <Printer size={20} /> {exporting ? "Generando…" : "Exportar PDF"}
-        </button>
+          )}
+          <button
+            type="button"
+            onClick={exportPdf}
+            disabled={!report || exporting}
+            className="min-h-16 px-6 rounded-full bg-[#0F7BA8] text-white text-[17px] font-semibold inline-flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(15,123,168,0.30)] hover:bg-[#0A5F82] disabled:opacity-60 ml-auto"
+          >
+            <Printer size={20} /> {exporting ? "Generando…" : "Exportar PDF"}
+          </button>
+        </div>
       </div>
 
       {groups.length === 0 && !loading && (
@@ -514,6 +483,39 @@ function ReportesPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function Segmented<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: [T, string][];
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[15px] font-semibold text-bosque">{label}</span>
+      <div className="flex h-16 gap-1 rounded-xl border border-[#E0E0E0] bg-white p-2" role="group" aria-label={label}>
+        {options.map(([v, text]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onChange(v)}
+            aria-pressed={value === v}
+            className={`px-4 rounded-lg text-[16px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F7BA8]/40 ${
+              value === v ? "bg-[#C5EBF9] text-[#072249]" : "text-[#475569] hover:bg-[#F0F0F0]"
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
